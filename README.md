@@ -138,8 +138,8 @@ The server package includes:
 - `createConversationHistoryHandler`
 - `defineSystemPrompt`
 - `createAuditedExecutor`
-- tool authorizers such as `allowRoles`, `allowTenant`, `allOfToolAuthorizers`, `anyOfToolAuthorizers`, `requireHumanApproval`, and `denyDestructiveInDemo`
-- tool helpers such as `defineTool`, `createToolRegistry`, `filterAuthorizedTools`, `createToolSuite`, `createToolManifest`, `toolOk`, and `toolError`
+- tool authorizers such as `allowRoles`, `allowTenant`, `allowFeatureFlag`, `allOfToolAuthorizers`, `anyOfToolAuthorizers`, `createToolPolicyAuthorizer`, `requireHumanApproval`, and `denyDestructiveInDemo`
+- tool helpers such as `defineTool`, `createToolRegistry`, `filterAuthorizedTools`, `createToolSuite`, `createToolManifest`, `toolOk`, `toolError`, and `toolDenied`
 - dynamic tool routing with `detectIntent`, `toolsByIntent`, `runtimeConfigAdapter`, and `resolveTools`
 - in-memory and noop adapters for persistence, audit, usage, rate limits, and tool execution limits
 - knowledge/RAG helpers such as `createKnowledgeTool`

@@ -1,7 +1,9 @@
 import {
   allOfToolAuthorizers,
+  allowFeatureFlag,
   allowRoles,
   allowTenant,
+  createToolPolicyAuthorizer,
 } from "./authorization.js";
 import type {
   ChatbotRuntimeContext,
@@ -39,6 +41,7 @@ export function defineTool<TInput, TOutput, TServices = unknown>(
   const authorize = combineAuthorizers(
     definition.authorize,
     definition.permissions,
+    definition.policy,
     definition.enabled,
   );
 
@@ -68,6 +71,7 @@ export function defineTool<TInput, TOutput, TServices = unknown>(
 function combineAuthorizers<TInput, TServices>(
   authorize: ToolAuthorize<TInput, TServices> | undefined,
   permissions: readonly ToolPermissionRule[] | undefined,
+  policy: ChatbotTool<TInput, unknown, TServices>["policy"] | undefined,
   enabled: ChatbotTool<TInput, unknown, TServices>["enabled"],
 ): ToolAuthorize<TInput, TServices> | undefined {
   const authorizers: ToolAuthorize<unknown, TServices>[] = [];
@@ -81,6 +85,10 @@ function combineAuthorizers<TInput, TServices>(
 
   if (permissions?.length) {
     authorizers.push(createPermissionsAuthorizer(permissions));
+  }
+
+  if (policy) {
+    authorizers.push(createToolPolicyAuthorizer(policy) as ToolAuthorize<unknown, TServices>);
   }
 
   if (authorize) {
@@ -116,6 +124,8 @@ function createPermissionsAuthorizer<TServices>(
         );
       case "scope":
         return createScopeAuthorizer(permission);
+      case "featureFlag":
+        return allowFeatureFlag(permission.flag, permission.reason ? { reason: permission.reason } : {});
     }
   });
 

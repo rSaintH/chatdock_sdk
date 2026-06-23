@@ -269,6 +269,25 @@ export type AuditEvent =
       createdAt: Date;
     }
   | {
+      type: "tool.filtered";
+      conversationId: string;
+      toolName: string;
+      reason: string;
+      user: ChatbotUser | null;
+      createdAt: Date;
+    }
+  | {
+      type: "tool.denied";
+      conversationId: string;
+      toolName: string;
+      toolCallId?: string;
+      input: unknown;
+      reason: string;
+      code?: string;
+      user: ChatbotUser | null;
+      createdAt: Date;
+    }
+  | {
       type: "tools.resolved";
       conversationId: string;
       step_number?: number;
@@ -420,7 +439,17 @@ export type DebugTraceAdapter = {
   record(event: DebugTraceEvent): Awaitable<void>;
 };
 
-export type ToolAuthorizationResult = boolean | { allowed: boolean; reason?: string };
+export type ToolAuthorizationPhase = "filter" | "execute";
+
+export type ToolAuthorizationResult =
+  | boolean
+  | {
+      allowed: boolean;
+      reason?: string;
+      code?: string;
+      retryable?: boolean;
+      metadata?: Record<string, unknown>;
+    };
 
 export type ToolPermissionRule =
   | {
@@ -440,12 +469,56 @@ export type ToolPermissionRule =
       required?: boolean;
       anyOf?: readonly string[];
       reason?: string;
+    }
+  | {
+      type: "featureFlag";
+      flag: string;
+      reason?: string;
     };
 
 export type ToolAuthorize<TInput = unknown, TServices = unknown> = (input: {
   tool: ChatbotTool<TInput, unknown, TServices>;
   context: ChatbotRuntimeContext<TServices>;
+  input?: TInput;
+  phase?: ToolAuthorizationPhase;
 }) => Awaitable<ToolAuthorizationResult>;
+
+export type ToolPolicyRule<TInput = unknown, TServices = unknown> = {
+  name?: string;
+  reason?: string;
+  code?: string;
+  when(input: {
+    tool: ChatbotTool<TInput, unknown, TServices>;
+    context: ChatbotRuntimeContext<TServices>;
+    input: TInput;
+  }): Awaitable<boolean>;
+};
+
+export type ToolPolicyMatrix<TInput = unknown, TServices = unknown> = {
+  roles?: {
+    anyOf?: readonly string[];
+    allOf?: readonly string[];
+    reason?: string;
+  };
+  scopes?: {
+    anyOf?: readonly string[];
+    allOf?: readonly string[];
+    reason?: string;
+  };
+  tenants?: {
+    required?: boolean;
+    anyOf?: readonly string[];
+    reason?: string;
+  };
+  featureFlags?: readonly (
+    | string
+    | {
+        flag: string;
+        reason?: string;
+      }
+  )[];
+  predicates?: readonly ToolPolicyRule<TInput, TServices>[];
+};
 
 export type ToolInputSchema<TInput = unknown> = unknown;
 
@@ -473,6 +546,7 @@ export type ChatbotTool<TInput = unknown, TOutput = unknown, TServices = unknown
   outputSchema?: unknown;
   maxOutputBytes?: number;
   permissions?: ToolPermissionRule[];
+  policy?: ToolPolicyMatrix<TInput, TServices>;
   destructive?: boolean;
   dangerous?: boolean;
   requiresConfirmation?: boolean;

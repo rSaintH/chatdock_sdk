@@ -247,6 +247,8 @@ export default defineTool({
 });
 ```
 
+For argument-aware authorization, add a declarative `policy` with roles, scopes, tenants, feature flags, and execute-time predicates. When a visible tool receives denied arguments, return or let the SDK produce a structured `toolDenied` result instead of throwing a server error.
+
 Regenerate the tool file after adding, removing, or renaming tools:
 
 ```bash

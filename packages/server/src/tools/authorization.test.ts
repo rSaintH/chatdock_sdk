@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  allowFeatureFlag,
   allowRoles,
   allowTenant,
   allOfToolAuthorizers,
+  createToolPolicyAuthorizer,
   denyDestructiveInDemo,
   requireHumanApproval,
 } from "./authorization.js";
@@ -47,6 +49,27 @@ describe("authorization helpers", () => {
     });
   });
 
+  it("allows enabled feature flags from runtime config or client context", async () => {
+    const authorize = allowFeatureFlag("gi_admin_tools");
+
+    expect(
+      await authorize({
+        tool,
+        context: createContext({ runtimeConfig: { featureFlags: { gi_admin_tools: true } } }),
+      }),
+    ).toBe(true);
+    expect(
+      await authorize({
+        tool,
+        context: createContext({ clientContext: { featureFlags: { gi_admin_tools: true } } }),
+      }),
+    ).toBe(true);
+    expect(await authorize({ tool, context: createContext() })).toEqual({
+      allowed: false,
+      reason: 'Feature flag "gi_admin_tools" is not enabled.',
+    });
+  });
+
   it("requires human approval from client context", async () => {
     const authorize = requireHumanApproval();
 
@@ -72,5 +95,39 @@ describe("authorization helpers", () => {
     const authorize = allOfToolAuthorizers(allowRoles(["admin"]), allowTenant("tenant_1"));
 
     await expect(authorize({ tool, context: createContext() })).resolves.toBe(true);
+  });
+
+  it("supports a declarative policy matrix with execute-time predicates", async () => {
+    const authorize = createToolPolicyAuthorizer<{ tenantId: string }>({
+      roles: { anyOf: ["admin"] },
+      scopes: { allOf: ["reports:read"] },
+      tenants: { required: true },
+      featureFlags: ["reports_tool"],
+      predicates: [
+        {
+          name: "same tenant",
+          code: "tenant_mismatch",
+          reason: "Cannot access another tenant.",
+          when: ({ context, input }) => context.user?.tenantId === input.tenantId,
+        },
+      ],
+    });
+    const context = createContext({
+      user: {
+        id: "user_1",
+        roles: ["admin"],
+        scopes: ["reports:read"],
+        tenantId: "tenant_1",
+      },
+      runtimeConfig: { featureFlags: { reports_tool: true } },
+    });
+
+    await expect(authorize({ tool, context, phase: "filter" })).resolves.toBe(true);
+    await expect(authorize({ tool, context, input: { tenantId: "tenant_1" }, phase: "execute" })).resolves.toBe(true);
+    await expect(authorize({ tool, context, input: { tenantId: "tenant_2" }, phase: "execute" })).resolves.toEqual({
+      allowed: false,
+      reason: "Cannot access another tenant.",
+      code: "tenant_mismatch",
+    });
   });
 });

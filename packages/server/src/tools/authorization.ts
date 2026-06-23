@@ -1,6 +1,8 @@
 import type {
   Awaitable,
   ChatbotRuntimeContext,
+  ChatbotTool,
+  ToolPolicyMatrix,
   ToolAuthorizationResult,
   ToolAuthorize,
 } from "../types.js";
@@ -44,6 +46,17 @@ export function allowTenant<TServices = unknown>(
     }
 
     return denied(options.reason ?? "The authenticated user is not assigned to an allowed tenant.");
+  };
+}
+
+export function allowFeatureFlag<TServices = unknown>(
+  flag: string,
+  options: AuthorizationOptions = {},
+): ToolAuthorize<unknown, TServices> {
+  return ({ context }) => {
+    return readFeatureFlag(context, flag)
+      ? true
+      : denied(options.reason ?? `Feature flag "${flag}" is not enabled.`);
   };
 }
 
@@ -105,6 +118,70 @@ export function allOfToolAuthorizers<TServices = unknown>(
   };
 }
 
+export function createToolPolicyAuthorizer<TInput = unknown, TServices = unknown>(
+  policy: ToolPolicyMatrix<TInput, TServices>,
+): ToolAuthorize<TInput, TServices> {
+  const authorizers: ToolAuthorize<TInput, TServices>[] = [];
+
+  if (policy.roles) {
+    authorizers.push(
+      allowRoles(policy.roles.allOf ?? policy.roles.anyOf ?? [], {
+        mode: policy.roles.allOf ? "all" : "any",
+        ...(policy.roles.reason ? { reason: policy.roles.reason } : {}),
+      }) as ToolAuthorize<TInput, TServices>,
+    );
+  }
+
+  if (policy.scopes) {
+    authorizers.push(createScopeAuthorizer(policy.scopes));
+  }
+
+  if (policy.tenants) {
+    if (policy.tenants.required !== false || policy.tenants.anyOf?.length) {
+      authorizers.push(
+        allowTenant(policy.tenants.anyOf, policy.tenants.reason ? { reason: policy.tenants.reason } : {}) as ToolAuthorize<
+          TInput,
+          TServices
+        >,
+      );
+    }
+  }
+
+  for (const featureFlag of policy.featureFlags ?? []) {
+    const flag = typeof featureFlag === "string" ? featureFlag : featureFlag.flag;
+    const reason = typeof featureFlag === "string" ? undefined : featureFlag.reason;
+    authorizers.push(
+      allowFeatureFlag(flag, reason ? { reason } : {}) as ToolAuthorize<TInput, TServices>,
+    );
+  }
+
+  for (const predicate of policy.predicates ?? []) {
+    authorizers.push(async ({ tool, context, input, phase = "execute" }) => {
+      if (phase !== "execute" || input === undefined) {
+        return true;
+      }
+
+      const allowed = await predicate.when({
+        tool: tool as ChatbotTool<TInput, unknown, TServices>,
+        context,
+        input: input as TInput,
+      });
+      return allowed
+        ? true
+        : {
+            allowed: false,
+            reason: predicate.reason ?? `Tool input was denied by policy${predicate.name ? ` "${predicate.name}"` : ""}.`,
+            ...(predicate.code ? { code: predicate.code } : {}),
+          };
+    });
+  }
+
+  return allOfToolAuthorizers(...(authorizers as ToolAuthorize<unknown, TServices>[])) as ToolAuthorize<
+    TInput,
+    TServices
+  >;
+}
+
 export function anyOfToolAuthorizers<TServices = unknown>(
   ...authorizers: ToolAuthorize<unknown, TServices>[]
 ): ToolAuthorize<unknown, TServices> {
@@ -129,4 +206,44 @@ function denied(reason: string) {
 
 function isAllowed(result: Awaited<ReturnType<ToolAuthorize>>): boolean {
   return typeof result === "boolean" ? result : result.allowed;
+}
+
+function createScopeAuthorizer<TInput, TServices>(
+  permission: {
+    anyOf?: readonly string[];
+    allOf?: readonly string[];
+    reason?: string;
+  },
+): ToolAuthorize<TInput, TServices> {
+  if (!permission.anyOf?.length && !permission.allOf?.length) {
+    return () => true;
+  }
+
+  return ({ context }) => {
+    const scopes = new Set(context.user?.scopes ?? []);
+    const allowed = permission.allOf
+      ? permission.allOf.every((scope) => scopes.has(scope))
+      : permission.anyOf?.some((scope) => scopes.has(scope)) ?? true;
+
+    return allowed
+      ? true
+      : denied(permission.reason ?? "The authenticated user does not have the required scope.");
+  };
+}
+
+function readFeatureFlag<TServices>(context: ChatbotRuntimeContext<TServices>, flag: string): boolean {
+  return (
+    readFlagFromRecord(context.runtimeConfig, flag) ||
+    readFlagFromRecord(context.runtimeConfig?.featureFlags, flag) ||
+    readFlagFromRecord(context.clientContext.featureFlags, flag) ||
+    readFlagFromRecord(context.clientContext, flag)
+  );
+}
+
+function readFlagFromRecord(value: unknown, flag: string): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  return (value as Record<string, unknown>)[flag] === true;
 }

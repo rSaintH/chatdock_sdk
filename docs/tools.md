@@ -73,6 +73,17 @@ return toolError({
 });
 ```
 
+Use `toolDenied` when the tool should tell the model that a visible tool cannot run for the submitted arguments:
+
+```ts
+import { toolDenied } from "@rscheln/chatdock-sdk";
+
+return toolDenied({
+  message: "The requested tenant is not available to this user.",
+  code: "tenant_mismatch",
+});
+```
+
 ## Naming Rules
 
 Tool names must be unique and use `snake_case`:
@@ -197,6 +208,33 @@ export default defineTool({
   execute,
 });
 ```
+
+Use `policy` when a tool needs the same checks plus feature flags or argument-aware predicates. Predicate checks run during execution, after the model has supplied tool input, so the tool can remain visible while specific arguments are denied cleanly.
+
+```ts
+export default defineTool({
+  name: "get_client_report",
+  description: "Gets a client report when the user can access the requested tenant.",
+  input: inputSchema,
+  policy: {
+    roles: { anyOf: ["admin", "support"] },
+    scopes: { allOf: ["reports:read"] },
+    tenants: { required: true },
+    featureFlags: ["reports_tool"],
+    predicates: [
+      {
+        name: "same tenant",
+        code: "tenant_mismatch",
+        reason: "The requested tenant is not available to this user.",
+        when: ({ context, input }) => context.user?.tenantId === input.tenantId,
+      },
+    ],
+  },
+  execute,
+});
+```
+
+Audit adapters can distinguish tools removed before model exposure (`tool.filtered`) from visible tools denied at execution time (`tool.denied`) and tools that failed while running (`tool.failed`).
 
 ## Suites And Manifest
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toolError, toolOk } from "./toolResult.js";
+import { toolDenied, toolError, toolOk } from "./toolResult.js";
 
 describe("tool result helpers", () => {
   it("wraps plain data in a standard success result", () => {
@@ -19,6 +19,18 @@ describe("tool result helpers", () => {
       error: "Unavailable",
       code: "unavailable",
       retryable: true,
+    });
+  });
+
+  it("creates structured tool denials", () => {
+    expect(toolDenied({ message: "Not allowed", code: "tenant_mismatch", metadata: { tenantId: "tenant_2" } })).toEqual({
+      error: "Not allowed",
+      code: "tenant_mismatch",
+      retryable: false,
+      metadata: {
+        denied: true,
+        tenantId: "tenant_2",
+      },
     });
   });
 });

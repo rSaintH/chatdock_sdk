@@ -24,6 +24,23 @@ export function toolError(input: {
   };
 }
 
+export function toolDenied(input: {
+  message: string;
+  code?: string;
+  retryable?: boolean;
+  metadata?: Record<string, unknown>;
+}): ToolResult<never> {
+  return toolError({
+    message: input.message,
+    code: input.code ?? "tool_denied",
+    retryable: input.retryable ?? false,
+    metadata: {
+      denied: true,
+      ...(input.metadata ?? {}),
+    },
+  });
+}
+
 function isToolResultInput<TData>(
   value: TData | Omit<ToolResult<TData>, "error" | "code" | "retryable">,
 ): value is Omit<ToolResult<TData>, "error" | "code" | "retryable"> {

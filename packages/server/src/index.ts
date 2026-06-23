@@ -29,6 +29,8 @@ export {
   allowTenant,
   allOfToolAuthorizers,
   anyOfToolAuthorizers,
+  allowFeatureFlag,
+  createToolPolicyAuthorizer,
   denyDestructiveInDemo,
   requireHumanApproval,
 } from "./tools/authorization.js";
@@ -49,7 +51,7 @@ export {
 } from "./tools/createToolExecutionRateLimit.js";
 export { createInMemoryUsageBudget, estimateUsageCost } from "./usage.js";
 export { defineTool, type DefineToolInput } from "./tools/defineTool.js";
-export { toolError, toolOk } from "./tools/toolResult.js";
+export { toolDenied, toolError, toolOk } from "./tools/toolResult.js";
 export {
   createMockRuntimeContext,
   createMockToolContext,

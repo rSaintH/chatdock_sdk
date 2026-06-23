@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { createAuditedExecutor } from "./createAuditedExecutor.js";
+import { toolDenied } from "./toolResult.js";
 import type {
   AuditAdapter,
   AuditEvent,
@@ -17,6 +18,18 @@ function isAllowed(result: ToolAuthorizationResult): boolean {
 
 function deniedReason(result: ToolAuthorizationResult): string | undefined {
   return typeof result === "boolean" ? undefined : result.reason;
+}
+
+function deniedCode(result: ToolAuthorizationResult): string | undefined {
+  return typeof result === "boolean" ? undefined : result.code;
+}
+
+function deniedRetryable(result: ToolAuthorizationResult): boolean | undefined {
+  return typeof result === "boolean" ? undefined : result.retryable;
+}
+
+function deniedMetadata(result: ToolAuthorizationResult): Record<string, unknown> | undefined {
+  return typeof result === "boolean" ? undefined : result.metadata;
 }
 
 export function createToolRegistry<TServices = unknown>(input: {
@@ -46,18 +59,43 @@ export function createToolRegistry<TServices = unknown>(input: {
       description: chatbotTool.description,
       inputSchema: chatbotTool.inputSchema as never,
       execute: async (toolInput: unknown, options) => {
-        const authorization = await authorizeTool({ tool: chatbotTool, context: input.context });
+        const authorization = await authorizeTool({
+          tool: chatbotTool,
+          context: input.context,
+          input: toolInput,
+          phase: "execute",
+        });
         if (!isAllowed(authorization)) {
+          const reason = deniedReason(authorization) ?? `Tool "${chatbotTool.name}" is not authorized for this request.`;
+          const code = deniedCode(authorization);
+          const retryable = deniedRetryable(authorization);
+          const metadata = deniedMetadata(authorization);
+          await recordAuditEvent(input.auditAdapter, {
+            type: "tool.denied",
+            conversationId: input.context.conversationId,
+            toolName: chatbotTool.name,
+            ...(options?.toolCallId ? { toolCallId: options.toolCallId } : {}),
+            input: toolInput,
+            reason,
+            ...(code ? { code } : {}),
+            user: input.context.user,
+            createdAt: new Date(),
+          });
           await recordAuditEvent(input.auditAdapter, {
             type: "permission.denied",
             conversationId: input.context.conversationId,
             scope: "tool",
             toolName: chatbotTool.name,
-            reason: deniedReason(authorization) ?? `Tool "${chatbotTool.name}" is not authorized for this request.`,
+            reason,
             user: input.context.user,
             createdAt: new Date(),
           });
-          throw new Error(`Tool "${chatbotTool.name}" is not authorized for this request.`);
+          return toolDenied({
+            message: reason,
+            ...(code ? { code } : {}),
+            ...(retryable == null ? {} : { retryable }),
+            ...(metadata ? { metadata } : {}),
+          });
         }
 
         if (input.toolExecutionRateLimitAdapter) {
@@ -99,19 +137,28 @@ export async function filterAuthorizedTools<TServices = unknown>(input: {
   const authorizedTools: ChatbotTool<unknown, unknown, TServices>[] = [];
 
   for (const chatbotTool of input.tools ?? []) {
-    const authorization = await authorizeTool({ tool: chatbotTool, context: input.context });
+    const authorization = await authorizeTool({ tool: chatbotTool, context: input.context, phase: "filter" });
     if (isAllowed(authorization)) {
       authorizedTools.push(chatbotTool);
       continue;
     }
 
     if (input.auditAdapter) {
+      const reason = deniedReason(authorization) ?? `Tool "${chatbotTool.name}" is not authorized for this request.`;
+      await recordAuditEvent(input.auditAdapter, {
+        type: "tool.filtered",
+        conversationId: input.context.conversationId,
+        toolName: chatbotTool.name,
+        reason,
+        user: input.context.user,
+        createdAt: new Date(),
+      });
       await recordAuditEvent(input.auditAdapter, {
         type: "permission.denied",
         conversationId: input.context.conversationId,
         scope: "tool",
         toolName: chatbotTool.name,
-        reason: deniedReason(authorization) ?? `Tool "${chatbotTool.name}" is not authorized for this request.`,
+        reason,
         user: input.context.user,
         createdAt: new Date(),
       });
@@ -124,6 +171,8 @@ export async function filterAuthorizedTools<TServices = unknown>(input: {
 async function authorizeTool<TServices = unknown>(input: {
   tool: ChatbotTool<unknown, unknown, TServices>;
   context: ChatbotRuntimeContext<TServices>;
+  input?: unknown;
+  phase: "filter" | "execute";
 }): Promise<ToolAuthorizationResult> {
   const enabled =
     typeof input.tool.enabled === "function"
@@ -144,6 +193,8 @@ async function authorizeTool<TServices = unknown>(input: {
     ? input.tool.authorize({
         tool: input.tool,
         context: input.context,
+        input: input.input,
+        phase: input.phase,
       })
     : true;
 }

@@ -87,4 +87,41 @@ describe("defineTool", () => {
       }),
     ).resolves.toEqual({ allowed: false, reason: expect.any(String) });
   });
+
+  it("turns a declarative policy matrix into an authorizer", async () => {
+    const tool = defineTool({
+      name: "buscar_relatorio",
+      description: "Busca relatorio.",
+      inputSchema: {},
+      policy: {
+        roles: { anyOf: ["admin"] },
+        featureFlags: ["reports"],
+        predicates: [
+          {
+            name: "allowed report",
+            code: "report_denied",
+            reason: "Report unavailable.",
+            when: ({ input }) => (input as { id: string }).id !== "blocked",
+          },
+        ],
+      },
+      execute: async () => ({ data: { ok: true } }),
+    });
+    const context = {
+      request: new Request("https://example.com"),
+      user: { id: "user_1", roles: ["admin"] },
+      conversationId: "conv_1",
+      clientContext: {},
+      runtimeConfig: { featureFlags: { reports: true } },
+      services: {},
+    } satisfies ChatbotRuntimeContext;
+
+    await expect(tool.authorize?.({ tool, context, phase: "filter" })).resolves.toBe(true);
+    await expect(tool.authorize?.({ tool, context, input: { id: "open" }, phase: "execute" })).resolves.toBe(true);
+    await expect(tool.authorize?.({ tool, context, input: { id: "blocked" }, phase: "execute" })).resolves.toEqual({
+      allowed: false,
+      reason: "Report unavailable.",
+      code: "report_denied",
+    });
+  });
 });

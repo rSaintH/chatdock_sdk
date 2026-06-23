@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createToolRegistry } from "./createToolRegistry.js";
+import { createToolRegistry, filterAuthorizedTools } from "./createToolRegistry.js";
 import { createInMemoryToolExecutionRateLimit, estimateModelCost } from "./createToolExecutionRateLimit.js";
 import type { ChatbotRuntimeContext, ChatbotTool } from "../types.js";
 
@@ -34,9 +34,12 @@ describe("createToolRegistry", () => {
 
     const registeredTool = registry["buscar_clientes"];
     expect(registeredTool).toBeDefined();
-    await expect(registeredTool!.execute?.({ query: "abc" } as never, {} as never)).rejects.toThrow(
-      /not authorized/,
-    );
+    await expect(registeredTool!.execute?.({ query: "abc" } as never, {} as never)).resolves.toEqual({
+      error: "Missing role.",
+      code: "tool_denied",
+      retryable: false,
+      metadata: { denied: true },
+    });
     expect(execute).not.toHaveBeenCalled();
     expect(auditRecord).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -45,6 +48,86 @@ describe("createToolRegistry", () => {
         scope: "tool",
         toolName: "buscar_clientes",
         reason: "Missing role.",
+      }),
+    );
+  });
+
+  it("records tool.filtered when a tool is filtered before model exposure", async () => {
+    const auditRecord = vi.fn();
+    const tool: ChatbotTool = {
+      name: "admin_report",
+      description: "Admin report",
+      inputSchema: {},
+      authorize: async () => ({ allowed: false, reason: "Admin only." }),
+      execute: async () => ({ data: "ok" }),
+    };
+
+    await expect(
+      filterAuthorizedTools({
+        tools: [tool],
+        context: createContext(),
+        auditAdapter: { record: auditRecord },
+      }),
+    ).resolves.toEqual([]);
+
+    expect(auditRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "tool.filtered",
+        conversationId: "conv_1",
+        toolName: "admin_report",
+        reason: "Admin only.",
+      }),
+    );
+  });
+
+  it("returns a structured denial result when execute-time authorization rejects the input", async () => {
+    const execute = vi.fn(async () => ({ data: "ok" }));
+    const auditRecord = vi.fn();
+    const tool: ChatbotTool<{ tenantId: string }> = {
+      name: "tenant_report",
+      description: "Tenant report",
+      inputSchema: {},
+      authorize: async ({ input, phase }) => {
+        if (phase === "filter") {
+          return true;
+        }
+
+        return input?.tenantId === "tenant_1"
+          ? true
+          : {
+              allowed: false,
+              reason: "Tenant mismatch.",
+              code: "tenant_mismatch",
+              metadata: { expectedTenantId: "tenant_1" },
+            };
+      },
+      execute,
+    };
+
+    const registry = createToolRegistry({
+      tools: [tool as ChatbotTool],
+      context: createContext(),
+      auditAdapter: { record: auditRecord },
+    });
+
+    await expect(registry["tenant_report"]!.execute?.({ tenantId: "tenant_2" } as never, {} as never)).resolves.toEqual({
+      error: "Tenant mismatch.",
+      code: "tenant_mismatch",
+      retryable: false,
+      metadata: {
+        denied: true,
+        expectedTenantId: "tenant_1",
+      },
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(auditRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "tool.denied",
+        conversationId: "conv_1",
+        toolName: "tenant_report",
+        input: { tenantId: "tenant_2" },
+        reason: "Tenant mismatch.",
+        code: "tenant_mismatch",
       }),
     );
   });
@@ -124,13 +207,16 @@ describe("createToolRegistry", () => {
       auditAdapter: { record: auditRecord },
     });
 
-    await expect(registry["excluir_cliente"]!.execute?.({ id: "cli_1" } as never, {} as never)).rejects.toThrow(
-      /not authorized/,
-    );
+    await expect(registry["excluir_cliente"]!.execute?.({ id: "cli_1" } as never, {} as never)).resolves.toEqual({
+      error: 'Tool "excluir_cliente" requires explicit human approval.',
+      code: "tool_denied",
+      retryable: false,
+      metadata: { denied: true },
+    });
     expect(execute).not.toHaveBeenCalled();
     expect(auditRecord).toHaveBeenCalledWith(
       expect.objectContaining({
-        type: "permission.denied",
+        type: "tool.denied",
         toolName: "excluir_cliente",
         reason: 'Tool "excluir_cliente" requires explicit human approval.',
       }),
