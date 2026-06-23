@@ -1,30 +1,204 @@
 # Chatdock SDK
 
-An npm monorepo for embedding tool-calling chatbots in Vite apps, Next.js App Router apps, and Supabase Edge Functions.
+Chatdock SDK is a monorepo for embedding tool-calling chatbots into React apps, Next.js App Router apps, and Supabase-backed workflows.
 
-The SDK separates reusable UI, a framework-agnostic backend core, runtime adapters, and a code generation CLI. The consuming app remains responsible for authentication, permissions, data, secrets, provider/model selection, and persistence.
+It gives you the reusable UI, backend handlers, auth and persistence adapters, tooling, schema, and CLI helpers. Your app still owns authentication, authorization, business data access, provider/model choice, secrets, and deployment.
+
+## What it can do
+
+- Render chatbot UIs in React
+- Stream chat responses through the AI SDK
+- Run backend chat handlers with tool calling
+- Expose remote conversation history
+- Validate auth from Next.js or Supabase
+- Persist chat state, usage, audit, and rate limits through Supabase
+- Define safe tools with authorization and human-approval checks
+- Add knowledge/RAG tools backed by your own data
+- Generate and sync tools from the CLI
+- Provide in-memory adapters for local development and tests
 
 ## Packages
 
-- `@rscheln/chatdock-sdk`: all-in-one package that installs and reexports the SDK modules.
-- `@rscheln/react`: React components and hooks built on `@ai-sdk/react`.
-- `@rscheln/server`: backend handler, tools, prompt builder, adapters, and types.
-- `@rscheln/next`: adapter for Next.js App Router routes.
-- `@rscheln/supabase`: adapter for Supabase Edge Functions.
-- `@rscheln/cli`: `init`, `make-tool`, `sync-tools`, `watch-tools`, and `doctor`.
+All packages are published under the `@rscheln/*` scope.
 
-## All-in-one install
+- `@rscheln/chatdock-sdk`: all-in-one package that reexports the SDK surface
+- `@rscheln/react`: React components, hooks, transport, and history helpers
+- `@rscheln/server`: framework-agnostic backend core, tools, adapters, prompts, tests, and utilities
+- `@rscheln/next`: Next.js App Router route helper and header auth adapter
+- `@rscheln/supabase`: Supabase chat handler, auth adapter, persistence, observability, rate limit, and knowledge adapters
+- `@rscheln/cli`: `init`, `make-tool`, `sync-tools`, and `doctor`
+
+## Install
 
 ```bash
 npm install @rscheln/chatdock-sdk
 ```
 
-```ts
-import { defineTool } from "@rscheln/chatdock-sdk";
-import { ChatbotLauncher, ChatbotProvider } from "@rscheln/chatdock-sdk/react";
-import { createNextChatbotRoute } from "@rscheln/chatdock-sdk/next";
-import { createSupabaseChatbotHandler } from "@rscheln/chatdock-sdk/supabase";
+Install only the pieces you need:
+
+```bash
+npm install @rscheln/react @rscheln/server @rscheln/next @rscheln/supabase
+npm install -D @rscheln/cli
 ```
+
+## Quick Start
+
+### 1. Pick your integration path
+
+- Use `@rscheln/next` if your app is a Next.js App Router app.
+- Use `@rscheln/supabase` if your runtime is Supabase Edge Functions.
+- Use `@rscheln/react` if you only need the UI layer and already have a backend.
+- Use `@rscheln/server` when you want the backend core without framework helpers.
+
+### 2. Wire auth and persistence
+
+The SDK does not replace your app auth. Pass your own auth adapter or validate the request before calling the handler.
+
+### 3. Register tools
+
+Define tools on the backend, keep authorization close to the tool, and only expose tools the current user can actually use.
+
+```ts
+import { defineTool, allowRoles, createToolRegistry } from "@rscheln/server";
+
+const tools = createToolRegistry([
+  defineTool({
+    name: "get-status",
+    description: "Returns the current status.",
+    authorize: allowRoles("admin"),
+    execute: async () => ({ ok: true }),
+  }),
+]);
+```
+
+### 4. Connect the UI
+
+```tsx
+import { ChatbotProvider, ChatbotLauncher } from "@rscheln/react";
+
+export function App() {
+  return (
+    <ChatbotProvider transport={/* your transport */}>
+      <ChatbotLauncher />
+    </ChatbotProvider>
+  );
+}
+```
+
+## Common Usage Patterns
+
+### Next.js App Router
+
+Use `createNextChatbotRoute` for a chat route and `createHeaderAuthAdapter` when your auth token lives in request headers.
+
+```ts
+import { createNextChatbotRoute, createHeaderAuthAdapter } from "@rscheln/next";
+
+export const POST = createNextChatbotRoute({
+  authAdapter: createHeaderAuthAdapter(async ({ token }) => {
+    return { userId: token, tenantId: "default" };
+  }),
+});
+```
+
+### Supabase Edge Functions
+
+Use `createSupabaseChatbotHandler` when the chat endpoint lives in Supabase Edge Functions, and pair it with Supabase adapters for auth, persistence, audit, usage, rate limits, and knowledge search.
+
+```ts
+import { createSupabaseChatbotHandler, createSupabaseAuthAdapter } from "@rscheln/supabase";
+
+export const handler = createSupabaseChatbotHandler({
+  auth: createSupabaseAuthAdapter({ client: userClient }),
+});
+```
+
+### React UI
+
+The React package includes:
+
+- `ChatbotProvider`
+- `useChatbot`
+- `ChatbotComposer`
+- `ChatbotLauncher`
+- `ChatbotPanel`
+- `ChatbotMessages`
+- `ChatbotHistoryPanel`
+- `ChatbotDebugPanel`
+- `ChatbotErrorBoundary`
+- `useChatbotConversations`
+- `createConversationHistoryClient`
+- `createChatbotTransport`
+
+### Backend core
+
+The server package includes:
+
+- `createChatbotHandler`
+- `createConversationHistoryHandler`
+- `defineSystemPrompt`
+- `createAuditedExecutor`
+- tool authorizers such as `allowRoles`, `allowTenant`, `allOfToolAuthorizers`, `anyOfToolAuthorizers`, `requireHumanApproval`, and `denyDestructiveInDemo`
+- tool helpers such as `defineTool`, `createToolRegistry`, `filterAuthorizedTools`, `createToolSuite`, `createToolManifest`, `toolOk`, and `toolError`
+- in-memory and noop adapters for persistence, audit, usage, rate limits, and tool execution limits
+- knowledge/RAG helpers such as `createKnowledgeTool`
+- test helpers such as `createMockRuntimeContext`, `createMockToolContext`, and `runToolTest`
+
+### Supabase adapters
+
+The Supabase package includes:
+
+- `createSupabaseChatbotHandler`
+- `createSupabaseAuthAdapter`
+- `createSupabasePersistence`
+- `createSupabaseAuditAdapter`
+- `createSupabaseUsageAdapter`
+- `createSupabaseRateLimitAdapter`
+- `createSupabaseKnowledgeAdapter`
+- `src/supabase/schema.sql` for the production schema
+
+## CLI
+
+The CLI helps you bootstrap and maintain a project:
+
+- `chatdock-sdk init`
+- `chatdock-sdk make-tool`
+- `chatdock-sdk sync-tools`
+- `chatdock-sdk doctor`
+
+Example:
+
+```bash
+npx chatdock-sdk init --next --supabase
+```
+
+## Security Baseline
+
+For production, the recommended baseline is:
+
+- authenticate every chat route
+- authorize every tool
+- rate limit chat requests
+- rate limit destructive tool execution separately
+- keep conversation history behind an authenticated backend route
+- keep business data access in your app, not inside the SDK
+- scope persistence and knowledge queries by tenant when you are multi-tenant
+- use Supabase RLS and service-role access only where appropriate
+
+See:
+
+- `docs/getting-started.md`
+- `docs/secure-setup.md`
+- `docs/security.md`
+- `docs/persistence.md`
+- `docs/tools.md`
+
+## Examples
+
+- `examples/next-basic`: full Next.js example with chat, history, auth, and generated tools
+- `examples/vite-supabase`: Vite + Supabase example
+- `examples/migrated-internal-a`
+- `examples/migrated-internal-b`
 
 ## Development
 
@@ -33,21 +207,8 @@ pnpm install
 pnpm build
 pnpm typecheck
 pnpm test
+pnpm lint
 ```
-
-## Internal readiness
-
-See `docs/internal-readiness.md` for the production-readiness checklist and the recommended integration path for internal applications.
-
-For secure production setup, see:
-
-- `docs/secure-setup.md`: complete auth, rate limit, Supabase, history, RAG and SQL policy guide.
-- `docs/security.md`: security boundary and dangerous tool rules.
-- `docs/persistence.md`: persistence contract and Supabase table guidance.
-- `examples/next-basic/README.md`: concrete Next.js App Router file layout.
-- `examples/vite-supabase/README.md`: concrete Vite + Supabase Edge Function file layout.
-
-An optional internal control plane can manage runtime settings, usage, audit, and knowledge sources, while each consuming product keeps its own auth, business data access, RLS, and tools.
 
 ## Publishing
 
@@ -58,15 +219,8 @@ pnpm build
 pnpm release:publish
 ```
 
-Consumers can install the all-in-one package:
+## Notes
 
-```bash
-npm install @rscheln/chatdock-sdk
-```
-
-Or install only the packages they need:
-
-```bash
-npm install @rscheln/react @rscheln/server @rscheln/next @rscheln/supabase
-npm install -D @rscheln/cli
-```
+- The all-in-one package reexports the server surface.
+- `packages/chatdock-sdk/src/supabase/schema.sql` must stay in sync with `packages/supabase/src/schema.sql`.
+- `README.md` is intentionally focused on usage. Deep implementation details live in `docs/`.
