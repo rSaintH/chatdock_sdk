@@ -223,20 +223,13 @@ export function createChatbotHandler<TServices = unknown>(
       context.intent = resolvedTools.route.intent;
       context.route = resolvedTools.route;
     }
-    context.runtimeConfig = resolvedTools.settings;
-    context.toolAvailability = [
-      ...resolvedTools.tools.map((tool) => ({ name: tool.name, available: true })),
-      ...resolvedTools.unavailableTools,
-    ];
-    await recordAuditEvent(auditAdapter, {
-      type: "tools.resolved",
+    applyResolvedToolsToContext(context, resolvedTools);
+    await recordToolsResolved({
+      auditAdapter,
       conversationId: conversation.id,
-      ...(resolvedTools.route ? { intent_detected: resolvedTools.route.intent } : {}),
-      tools_total: options.tools?.length ?? 0,
-      tools_sent: resolvedTools.tools.length,
-      tools_unavailable: resolvedTools.unavailableTools,
+      options,
+      resolvedTools,
       user,
-      createdAt: new Date(),
     });
 
     let validatedMessages: UIMessage[];
@@ -351,6 +344,19 @@ export function createChatbotHandler<TServices = unknown>(
       model,
       messages: await convertToModelMessages(validatedMessages),
       tools: toolRegistry,
+      ...(shouldResolveToolsPerStep(options)
+        ? {
+            prepareStep: createToolRoutingPrepareStep({
+              options,
+              context,
+              body,
+              messages: mergedMessages,
+              auditAdapter,
+              conversationId: conversation.id,
+              user,
+            }),
+          }
+        : {}),
       stopWhen: stepCountIs(options.maxSteps ?? 5),
       ...(system ? { system } : {}),
       onError: async ({ error }) => {
@@ -600,6 +606,91 @@ async function resolveModel<TServices>(
   }
 
   return undefined;
+}
+
+function shouldResolveToolsPerStep<TServices>(options: ChatbotHandlerOptions<TServices>): boolean {
+  return Boolean(
+    options.detectIntent ||
+      options.resolveTools ||
+      options.runtimeConfigAdapter ||
+      (options.toolsByIntent && Object.keys(options.toolsByIntent).length > 0),
+  );
+}
+
+function createToolRoutingPrepareStep<TServices>(input: {
+  options: ChatbotHandlerOptions<TServices>;
+  context: ChatbotRuntimeContext<TServices>;
+  body: ChatbotRequestBody;
+  messages: UIMessage[];
+  auditAdapter: AuditAdapter;
+  conversationId: string;
+  user: ChatbotUser | null;
+}): NonNullable<Parameters<typeof streamText>[0]["prepareStep"]> {
+  return async ({ stepNumber, messages, steps, experimental_context }) => {
+    const resolvedTools = await resolveRequestTools({
+      options: input.options,
+      context: input.context,
+      body: input.body,
+      messages: input.messages,
+      auditAdapter: input.auditAdapter,
+      step: {
+        stepNumber,
+        stepMessages: messages,
+        steps,
+        experimentalContext: experimental_context,
+      },
+    });
+
+    applyResolvedToolsToContext(input.context, resolvedTools);
+    await recordToolsResolved({
+      auditAdapter: input.auditAdapter,
+      conversationId: input.conversationId,
+      options: input.options,
+      resolvedTools,
+      user: input.user,
+      stepNumber,
+    });
+
+    return {
+      activeTools: resolvedTools.tools.map((tool) => tool.name),
+    };
+  };
+}
+
+function applyResolvedToolsToContext<TServices>(
+  context: ChatbotRuntimeContext<TServices>,
+  resolvedTools: ResolvedTools<TServices>,
+): void {
+  if (resolvedTools.route) {
+    context.intent = resolvedTools.route.intent;
+    context.route = resolvedTools.route;
+  }
+  context.runtimeConfig = resolvedTools.settings;
+  context.toolAvailability = [
+    ...resolvedTools.tools.map((tool) => ({ name: tool.name, available: true })),
+    ...resolvedTools.unavailableTools,
+  ];
+}
+
+async function recordToolsResolved<TServices>(input: {
+  auditAdapter: AuditAdapter;
+  conversationId: string;
+  options: ChatbotHandlerOptions<TServices>;
+  resolvedTools: ResolvedTools<TServices>;
+  user: ChatbotUser | null;
+  stepNumber?: number;
+}): Promise<void> {
+  await recordAuditEvent(input.auditAdapter, {
+    type: "tools.resolved",
+    conversationId: input.conversationId,
+    ...(input.stepNumber == null ? {} : { step_number: input.stepNumber }),
+    ...(input.resolvedTools.route ? { intent_detected: input.resolvedTools.route.intent } : {}),
+    tools_total: input.options.tools?.length ?? 0,
+    tools_sent: input.resolvedTools.tools.length,
+    tools_unavailable: input.resolvedTools.unavailableTools,
+    user: input.user,
+    createdAt: new Date(),
+  });
 }
 
 function jsonResponse(body: unknown, status: number, headers?: HeadersInit): Response {

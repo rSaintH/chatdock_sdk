@@ -267,6 +267,9 @@ debug snapshots, and the model call. A `resolveTools` hook can reduce or reorder
 the current list, but it cannot reintroduce a tool that was already filtered out
 by authorization, intent, or runtime config.
 
+When dynamic routing is configured, the handler also re-runs routing from the AI
+SDK `prepareStep` hook and sends the step-specific list through `activeTools`.
+
 The handler emits a `tools.resolved` audit event with `intent_detected`,
 `tools_total`, `tools_sent`, and `tools_unavailable` so production routes can
 track which tools were sent to the provider.

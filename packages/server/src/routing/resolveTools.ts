@@ -28,6 +28,12 @@ export async function resolveRequestTools<TServices = unknown>(input: {
   body: ChatbotRequestBody;
   messages: UIMessage[];
   auditAdapter: AuditAdapter;
+  step?: {
+    stepNumber: number;
+    stepMessages?: unknown[];
+    steps?: unknown[];
+    experimentalContext?: unknown;
+  };
 }): Promise<ResolvedTools<TServices>> {
   const settings = await input.options.runtimeConfigAdapter?.get({
     context: input.context,
@@ -40,6 +46,16 @@ export async function resolveRequestTools<TServices = unknown>(input: {
     messages: input.messages,
     ...(lastMessage ? { message: lastMessage } : {}),
     settings,
+    ...(input.step
+      ? {
+          stepNumber: input.step.stepNumber,
+          ...(input.step.stepMessages ? { stepMessages: input.step.stepMessages } : {}),
+          ...(input.step.steps ? { steps: input.step.steps } : {}),
+          ...(input.step.experimentalContext !== undefined
+            ? { experimentalContext: input.step.experimentalContext }
+            : {}),
+        }
+      : {}),
   });
   const route = normalizeIntentRoute(detected);
   const unavailableTools: ToolAvailability[] = [];
@@ -73,6 +89,16 @@ export async function resolveRequestTools<TServices = unknown>(input: {
       context: input.context,
       tools: beforeHook,
       unavailableTools: [...unavailableTools],
+      ...(input.step
+        ? {
+            stepNumber: input.step.stepNumber,
+            ...(input.step.stepMessages ? { stepMessages: input.step.stepMessages } : {}),
+            ...(input.step.steps ? { steps: input.step.steps } : {}),
+            ...(input.step.experimentalContext !== undefined
+              ? { experimentalContext: input.step.experimentalContext }
+              : {}),
+          }
+        : {}),
     });
 
     if (resolved) {

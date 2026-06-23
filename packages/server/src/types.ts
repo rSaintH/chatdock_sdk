@@ -271,6 +271,7 @@ export type AuditEvent =
   | {
       type: "tools.resolved";
       conversationId: string;
+      step_number?: number;
       intent_detected?: string;
       tools_total: number;
       tools_sent: number;
@@ -519,6 +520,10 @@ export type IntentDetector<TServices = unknown> = (input: {
   messages: UIMessage[];
   message?: UIMessage;
   settings: ChatbotRuntimeConfig | null;
+  stepNumber?: number;
+  stepMessages?: unknown[];
+  steps?: unknown[];
+  experimentalContext?: unknown;
 }) => Awaitable<IntentRoute | ChatIntent | null | undefined>;
 
 export type ToolAvailability = {
@@ -537,6 +542,10 @@ export type ToolResolverInput<TServices = unknown> = {
   context: ChatbotRuntimeContext<TServices>;
   tools: ChatbotTool<unknown, unknown, TServices>[];
   unavailableTools: ToolAvailability[];
+  stepNumber?: number;
+  stepMessages?: unknown[];
+  steps?: unknown[];
+  experimentalContext?: unknown;
 };
 
 export type ToolResolverResult<TServices = unknown> =

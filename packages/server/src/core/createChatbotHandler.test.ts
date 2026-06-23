@@ -610,6 +610,73 @@ describe("createChatbotHandler", () => {
     );
   });
 
+  it("re-resolves active tools inside prepareStep for each model step", async () => {
+    const auditRecord = vi.fn();
+    const resolveTools = vi.fn(async ({ tools, stepNumber }) => ({
+      tools: stepNumber === 0
+        ? tools.filter((tool) => tool.name === "step_tool")
+        : tools,
+    }));
+    const model = new MockLanguageModelV3({
+      doStream: {
+        stream: convertArrayToReadableStream([
+          { type: "stream-start", warnings: [] },
+          { type: "text-start", id: "text-1" },
+          { type: "text-delta", id: "text-1", delta: "Ok" },
+          { type: "text-end", id: "text-1" },
+          { type: "finish", usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } }, finishReason: "stop" },
+        ]),
+      },
+    });
+
+    const handler = createChatbotHandler({
+      model,
+      auditAdapter: { record: auditRecord },
+      tools: [
+        {
+          name: "initial_tool",
+          description: "Initial tool.",
+          inputSchema: jsonSchema({ type: "object", properties: {} }),
+          execute: async () => ({ ok: true }),
+        },
+        {
+          name: "step_tool",
+          description: "Step tool.",
+          inputSchema: jsonSchema({ type: "object", properties: {} }),
+          execute: async () => ({ ok: true }),
+        },
+      ],
+      resolveTools,
+    });
+
+    const response = await handler(
+      new Request("https://example.com/api/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: {
+            id: "user-msg-1",
+            role: "user",
+            parts: [{ type: "text", text: "Oi" }],
+          },
+        }),
+      }),
+    );
+
+    await response.text();
+
+    expect(response.status).toBe(200);
+    expect(resolveTools).toHaveBeenCalledWith(expect.objectContaining({ stepNumber: 0 }));
+    expect(model.doStreamCalls[0]?.tools?.map((tool) => tool.name)).toEqual(["step_tool"]);
+    expect(auditRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "tools.resolved",
+        step_number: 0,
+        tools_sent: 1,
+      }),
+    );
+  });
+
   it("returns a typed error when dynamic tool resolution fails", async () => {
     const auditRecord = vi.fn();
     const model = new MockLanguageModelV3({
