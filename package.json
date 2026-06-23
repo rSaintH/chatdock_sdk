@@ -1,0 +1,25 @@
+{
+  "name": "chatdock-sdk-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.12.1",
+  "scripts": {
+    "build": "corepack pnpm -r --if-present build",
+    "typecheck": "corepack pnpm -r --if-present typecheck",
+    "test": "corepack pnpm -r --if-present test",
+    "lint": "corepack pnpm -r --if-present lint",
+    "clean": "corepack pnpm -r --if-present clean",
+    "changeset": "corepack pnpm exec changeset",
+    "release:version": "corepack pnpm exec changeset version && corepack pnpm install --lockfile-only",
+    "release:publish": "corepack pnpm exec changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.5",
+    "@types/node": "^24.0.3",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.3",
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

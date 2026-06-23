@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@rscheln/server": ["packages/server/src/index.ts"],
+      "@rscheln/react": ["packages/react/src/index.ts"],
+      "@rscheln/next": ["packages/next/src/index.ts"],
+      "@rscheln/supabase": ["packages/supabase/src/index.ts"],
+      "@rscheln/chatdock-sdk": ["packages/chatdock-sdk/src/index.ts"],
+      "@rscheln/chatdock-sdk/react": ["packages/chatdock-sdk/src/react.ts"],
+      "@rscheln/chatdock-sdk/server": ["packages/chatdock-sdk/src/server.ts"],
+      "@rscheln/chatdock-sdk/next": ["packages/chatdock-sdk/src/next.ts"],
+      "@rscheln/chatdock-sdk/supabase": ["packages/chatdock-sdk/src/supabase.ts"]
+    },
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
+  }
+}

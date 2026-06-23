@@ -1,0 +1,29 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": false,
+    "baseUrl": ".",
+    "incremental": true,
+    "jsx": "preserve",
+    "lib": ["dom", "dom.iterable", "es2022"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "paths": {
+      "@rscheln/chatdock-sdk": ["../../packages/chatdock-sdk/src/index.ts"],
+      "@rscheln/chatdock-sdk/react": ["../../packages/chatdock-sdk/src/react.ts"],
+      "@rscheln/chatdock-sdk/server": ["../../packages/chatdock-sdk/src/server.ts"],
+      "@rscheln/chatdock-sdk/next": ["../../packages/chatdock-sdk/src/next.ts"],
+      "@rscheln/chatdock-sdk/supabase": ["../../packages/chatdock-sdk/src/supabase.ts"],
+      "@/*": ["./src/*"]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "types": ["node"]
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
