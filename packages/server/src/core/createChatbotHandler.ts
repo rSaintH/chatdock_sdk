@@ -242,6 +242,7 @@ export function createChatbotHandler<TServices = unknown>(
         toolExecutionRateLimitAdapter,
         ...(options.defaultToolTimeoutMs == null ? {} : { defaultToolTimeoutMs: options.defaultToolTimeoutMs }),
         ...(options.maxToolOutputBytes == null ? {} : { maxToolOutputBytes: options.maxToolOutputBytes }),
+        ...(options.toolInputNormalizers ? { toolInputNormalizers: options.toolInputNormalizers } : {}),
       });
       validatedMessages = await validateUIMessages({
         messages: mergedMessages,
@@ -304,6 +305,7 @@ export function createChatbotHandler<TServices = unknown>(
       toolExecutionRateLimitAdapter,
       ...(options.defaultToolTimeoutMs == null ? {} : { defaultToolTimeoutMs: options.defaultToolTimeoutMs }),
       ...(options.maxToolOutputBytes == null ? {} : { maxToolOutputBytes: options.maxToolOutputBytes }),
+      ...(options.toolInputNormalizers ? { toolInputNormalizers: options.toolInputNormalizers } : {}),
     });
 
     const system = await renderSystemPrompt(options.systemPrompt, context);

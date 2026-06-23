@@ -51,6 +51,16 @@ export {
 } from "./tools/createToolExecutionRateLimit.js";
 export { createInMemoryUsageBudget, estimateUsageCost } from "./usage.js";
 export { defineTool, type DefineToolInput } from "./tools/defineTool.js";
+export {
+  coerceLocaleBoolean,
+  coerceLocaleDate,
+  coerceLocaleNumber,
+  competenciaSchema,
+  normalizeToolInput,
+  normalizeToolInputFields,
+  sanitizeHallucinatedId,
+  sanitizeNullableId,
+} from "./tools/toolInput.js";
 export { toolDenied, toolError, toolOk } from "./tools/toolResult.js";
 export {
   createMockRuntimeContext,

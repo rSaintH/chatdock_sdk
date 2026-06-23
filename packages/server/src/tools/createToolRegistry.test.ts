@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { createToolRegistry, filterAuthorizedTools } from "./createToolRegistry.js";
 import { createInMemoryToolExecutionRateLimit, estimateModelCost } from "./createToolExecutionRateLimit.js";
+import {
+  coerceLocaleBoolean,
+  coerceLocaleNumber,
+  competenciaSchema,
+  normalizeToolInputFields,
+  sanitizeNullableId,
+} from "./toolInput.js";
 import type { ChatbotRuntimeContext, ChatbotTool } from "../types.js";
 
 function createContext(input: Partial<ChatbotRuntimeContext> = {}): ChatbotRuntimeContext {
@@ -128,6 +135,96 @@ describe("createToolRegistry", () => {
         input: { tenantId: "tenant_2" },
         reason: "Tenant mismatch.",
         code: "tenant_mismatch",
+      }),
+    );
+  });
+
+  it("normalizes tool input before authorization, rate limit, validation, and execute", async () => {
+    const execute = vi.fn(async ({ input }) => ({ data: input }));
+    const rateLimitCheck = vi.fn(async () => ({ allowed: true as const }));
+    const authorize = vi.fn(async () => true);
+    const tool: ChatbotTool = {
+      name: "create_invoice",
+      description: "Create invoice",
+      inputSchema: {
+        parse(input: unknown) {
+          const value = input as { amount: unknown; confirmed: unknown; competencia: unknown; clientId: unknown };
+          if (
+            typeof value.amount !== "number" ||
+            value.confirmed !== false ||
+            value.competencia !== "2026-06" ||
+            value.clientId !== null
+          ) {
+            throw new Error("input was not normalized before validation");
+          }
+          return value;
+        },
+      },
+      inputNormalizers: [
+        normalizeToolInputFields({
+          confirmed: coerceLocaleBoolean("pt-BR"),
+          competencia: competenciaSchema(),
+          clientId: sanitizeNullableId(),
+        }),
+      ],
+      authorize,
+      execute,
+    };
+
+    const registry = createToolRegistry({
+      tools: [tool],
+      context: createContext(),
+      auditAdapter: { record: vi.fn() },
+      toolExecutionRateLimitAdapter: { check: rateLimitCheck },
+      toolInputNormalizers: [normalizeToolInputFields({ amount: coerceLocaleNumber("pt-BR") })],
+    });
+
+    await expect(
+      registry["create_invoice"]!.execute?.(
+        {
+          amount: "1.234,56",
+          confirmed: "nao",
+          competencia: "06/2026",
+          clientId: "??",
+        } as never,
+        {} as never,
+      ),
+    ).resolves.toEqual({
+      data: {
+        amount: 1234.56,
+        confirmed: false,
+        competencia: "2026-06",
+        clientId: null,
+      },
+    });
+    expect(authorize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: {
+          amount: 1234.56,
+          confirmed: false,
+          competencia: "2026-06",
+          clientId: null,
+        },
+      }),
+    );
+    expect(rateLimitCheck).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: {
+          amount: 1234.56,
+          confirmed: false,
+          competencia: "2026-06",
+          clientId: null,
+        },
+      }),
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: {
+          amount: 1234.56,
+          confirmed: false,
+          competencia: "2026-06",
+          clientId: null,
+        },
       }),
     );
   });

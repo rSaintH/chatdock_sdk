@@ -522,6 +522,18 @@ export type ToolPolicyMatrix<TInput = unknown, TServices = unknown> = {
 
 export type ToolInputSchema<TInput = unknown> = unknown;
 
+export type ToolInputNormalizerInput<TServices = unknown> = {
+  tool: ChatbotTool<unknown, unknown, TServices>;
+  context: ChatbotRuntimeContext<TServices>;
+  input: unknown;
+};
+
+export type ToolInputNormalizer<TServices = unknown> = (
+  input: ToolInputNormalizerInput<TServices>,
+) => Awaitable<unknown>;
+
+export type ToolInputValueNormalizer = (value: unknown) => unknown;
+
 export type ToolResult<TData = unknown> = {
   data?: TData;
   rowCount?: number;
@@ -547,6 +559,7 @@ export type ChatbotTool<TInput = unknown, TOutput = unknown, TServices = unknown
   maxOutputBytes?: number;
   permissions?: ToolPermissionRule[];
   policy?: ToolPolicyMatrix<TInput, TServices>;
+  inputNormalizers?: readonly ToolInputNormalizer<TServices>[];
   destructive?: boolean;
   dangerous?: boolean;
   requiresConfirmation?: boolean;
@@ -668,6 +681,7 @@ export type ChatbotHandlerOptions<TServices = unknown> = {
   usageBudgetAdapter?: UsageBudgetAdapter<TServices>;
   rateLimitAdapter?: RateLimitAdapter<TServices>;
   toolExecutionRateLimitAdapter?: ToolExecutionRateLimitAdapter<TServices>;
+  toolInputNormalizers?: readonly ToolInputNormalizer<TServices>[];
   defaultToolTimeoutMs?: number;
   maxToolOutputBytes?: number;
   maxSteps?: number;

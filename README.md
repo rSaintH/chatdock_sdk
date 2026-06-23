@@ -140,6 +140,7 @@ The server package includes:
 - `createAuditedExecutor`
 - tool authorizers such as `allowRoles`, `allowTenant`, `allowFeatureFlag`, `allOfToolAuthorizers`, `anyOfToolAuthorizers`, `createToolPolicyAuthorizer`, `requireHumanApproval`, and `denyDestructiveInDemo`
 - tool helpers such as `defineTool`, `createToolRegistry`, `filterAuthorizedTools`, `createToolSuite`, `createToolManifest`, `toolOk`, `toolError`, and `toolDenied`
+- tool input normalizers such as `normalizeToolInputFields`, `competenciaSchema`, `coerceLocaleNumber`, `coerceLocaleBoolean`, `coerceLocaleDate`, `sanitizeNullableId`, and `sanitizeHallucinatedId`
 - dynamic tool routing with `detectIntent`, `toolsByIntent`, `runtimeConfigAdapter`, and `resolveTools`
 - in-memory and noop adapters for persistence, audit, usage, rate limits, and tool execution limits
 - knowledge/RAG helpers such as `createKnowledgeTool`

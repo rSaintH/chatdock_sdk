@@ -84,6 +84,52 @@ return toolDenied({
 });
 ```
 
+## Input Normalization
+
+Use input normalizers when the model or user may provide locale-specific values that should be coerced before the tool runs. Normalizers run before execute-time authorization, rate limiting, final schema parsing, and `execute`.
+
+```ts
+import {
+  coerceLocaleBoolean,
+  coerceLocaleNumber,
+  competenciaSchema,
+  defineTool,
+  normalizeToolInputFields,
+  sanitizeNullableId,
+} from "@rscheln/chatdock-sdk";
+
+export default defineTool({
+  name: "create_invoice",
+  description: "Creates an invoice from normalized accounting input.",
+  input: inputSchema,
+  inputNormalizers: [
+    normalizeToolInputFields({
+      competencia: competenciaSchema(),
+      amount: coerceLocaleNumber("pt-BR"),
+      confirmed: coerceLocaleBoolean("pt-BR"),
+      clientId: sanitizeNullableId(),
+    }),
+  ],
+  execute,
+});
+```
+
+Handler-level defaults apply to every tool and tool-level normalizers run after them:
+
+```ts
+createChatbotHandler({
+  model,
+  tools,
+  toolInputNormalizers: [
+    normalizeToolInputFields({
+      tenantId: sanitizeNullableId(),
+    }),
+  ],
+});
+```
+
+Available helpers include `competenciaSchema()` for `MM/AAAA` to `YYYY-MM`, `coerceLocaleDate(locale, timezone)`, `coerceLocaleNumber(locale)`, `coerceLocaleBoolean(locale)`, `sanitizeHallucinatedId()`, and `sanitizeNullableId()`.
+
 ## Naming Rules
 
 Tool names must be unique and use `snake_case`:

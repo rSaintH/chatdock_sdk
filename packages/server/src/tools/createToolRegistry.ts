@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { createAuditedExecutor } from "./createAuditedExecutor.js";
+import { normalizeToolInput } from "./toolInput.js";
 import { toolDenied } from "./toolResult.js";
 import type {
   AuditAdapter,
@@ -10,6 +11,7 @@ import type {
   DebugTraceAdapter,
   ToolAuthorizationResult,
   ToolExecutionRateLimitAdapter,
+  ToolInputNormalizer,
 } from "../types.js";
 
 function isAllowed(result: ToolAuthorizationResult): boolean {
@@ -38,6 +40,7 @@ export function createToolRegistry<TServices = unknown>(input: {
   auditAdapter: AuditAdapter;
   debugAdapter?: DebugTraceAdapter;
   toolExecutionRateLimitAdapter?: ToolExecutionRateLimitAdapter<TServices>;
+  toolInputNormalizers?: readonly ToolInputNormalizer<TServices>[];
   defaultToolTimeoutMs?: number;
   maxToolOutputBytes?: number;
 }): ToolSet {
@@ -59,10 +62,16 @@ export function createToolRegistry<TServices = unknown>(input: {
       description: chatbotTool.description,
       inputSchema: chatbotTool.inputSchema as never,
       execute: async (toolInput: unknown, options) => {
+        const normalizedInput = await normalizeToolInput({
+          tool: chatbotTool,
+          context: input.context,
+          value: toolInput,
+          ...(input.toolInputNormalizers ? { normalizers: input.toolInputNormalizers } : {}),
+        });
         const authorization = await authorizeTool({
           tool: chatbotTool,
           context: input.context,
-          input: toolInput,
+          input: normalizedInput,
           phase: "execute",
         });
         if (!isAllowed(authorization)) {
@@ -75,7 +84,7 @@ export function createToolRegistry<TServices = unknown>(input: {
             conversationId: input.context.conversationId,
             toolName: chatbotTool.name,
             ...(options?.toolCallId ? { toolCallId: options.toolCallId } : {}),
-            input: toolInput,
+            input: normalizedInput,
             reason,
             ...(code ? { code } : {}),
             user: input.context.user,
@@ -101,7 +110,7 @@ export function createToolRegistry<TServices = unknown>(input: {
         if (input.toolExecutionRateLimitAdapter) {
           const rateLimit = await input.toolExecutionRateLimitAdapter.check({
             tool: chatbotTool,
-            input: toolInput,
+            input: normalizedInput,
             context: input.context,
             options,
           });
@@ -121,7 +130,7 @@ export function createToolRegistry<TServices = unknown>(input: {
           }
         }
 
-        return executeWithAudit(chatbotTool, toolInput, options);
+        return executeWithAudit(chatbotTool, normalizedInput, options);
       },
     }) as ToolSet[string];
   }
