@@ -219,6 +219,58 @@ export const tools = suite.tools;
 
 Use `createToolManifest` for safe diagnostics or prompt metadata. It includes names, descriptions, and public metadata, but never includes `execute`.
 
+## Dynamic Tool Routing
+
+Use dynamic routing when the app has many tools and each turn should expose only
+the tools that make sense for the detected intent, tenant config, and current
+user context.
+
+```ts
+import { createChatbotHandler } from "@rscheln/chatdock-sdk";
+import { tools } from "./tools.generated";
+
+export const handler = createChatbotHandler({
+  model,
+  tools,
+  toolsByIntent: {
+    clients: ["search_clients", "get_client"],
+    docs: ["search_knowledge"],
+  },
+  detectIntent: async ({ message }) => {
+    const text = message?.parts
+      .map((part) => (part.type === "text" ? part.text : ""))
+      .join(" ")
+      .toLowerCase();
+
+    return text?.includes("manual") ? "docs" : "clients";
+  },
+  runtimeConfigAdapter: {
+    get: async ({ context }) => ({
+      tools: context.user?.roles?.includes("admin")
+        ? ["search_clients", "get_client", "search_knowledge"]
+        : ["search_clients", "search_knowledge"],
+    }),
+  },
+  resolveTools: async ({ tools, intent, settings, context }) => ({
+    tools: tools.filter((tool) => {
+      if (intent === "clients" && context.clientContext.readOnly === true) {
+        return tool.name !== "get_client";
+      }
+      return settings?.disabledToolNames?.includes(tool.name) !== true;
+    }),
+  }),
+});
+```
+
+Routing is applied after built-in authorization and before UI message validation,
+debug snapshots, and the model call. A `resolveTools` hook can reduce or reorder
+the current list, but it cannot reintroduce a tool that was already filtered out
+by authorization, intent, or runtime config.
+
+The handler emits a `tools.resolved` audit event with `intent_detected`,
+`tools_total`, `tools_sent`, and `tools_unavailable` so production routes can
+track which tools were sent to the provider.
+
 ## Knowledge Tool
 
 Use `createKnowledgeTool` when the model needs retrieval from approved documents:

@@ -9,8 +9,10 @@ import {
   createNoopUsageAdapter,
 } from "../adapters/noop.js";
 import { renderSystemPrompt } from "../prompt/defineSystemPrompt.js";
+import { resolveRequestTools } from "../routing/resolveTools.js";
+import type { ResolvedTools } from "../routing/resolveTools.js";
 import { getTenantId } from "../tenant.js";
-import { createToolRegistry, filterAuthorizedTools } from "../tools/createToolRegistry.js";
+import { createToolRegistry } from "../tools/createToolRegistry.js";
 import type {
   AuditAdapter,
   AuditEvent,
@@ -189,10 +191,52 @@ export function createChatbotHandler<TServices = unknown>(
       mergeMessages(loadedMessages, incomingMessages),
       options.maxHistoryMessages,
     );
-    const authorizedTools = await filterAuthorizedTools({
-      ...(options.tools ? { tools: options.tools } : {}),
-      context,
-      auditAdapter,
+    let resolvedTools: ResolvedTools<TServices>;
+    try {
+      resolvedTools = await resolveRequestTools({
+        options,
+        context,
+        body,
+        messages: mergedMessages,
+        auditAdapter,
+      });
+    } catch (error) {
+      await recordRequestFailed(auditAdapter, {
+        error,
+        requestStartedAt,
+        conversationId: conversation.id,
+        user,
+      });
+      await recordDebugRequestFailed(debugAdapter, {
+        error,
+        code: "unknown",
+        requestStartedAt,
+        conversationId: conversation.id,
+        user,
+      });
+      return jsonResponse(
+        createErrorBody(error, "unknown", true, "Tool routing failed"),
+        500,
+      );
+    }
+    if (resolvedTools.route) {
+      context.intent = resolvedTools.route.intent;
+      context.route = resolvedTools.route;
+    }
+    context.runtimeConfig = resolvedTools.settings;
+    context.toolAvailability = [
+      ...resolvedTools.tools.map((tool) => ({ name: tool.name, available: true })),
+      ...resolvedTools.unavailableTools,
+    ];
+    await recordAuditEvent(auditAdapter, {
+      type: "tools.resolved",
+      conversationId: conversation.id,
+      ...(resolvedTools.route ? { intent_detected: resolvedTools.route.intent } : {}),
+      tools_total: options.tools?.length ?? 0,
+      tools_sent: resolvedTools.tools.length,
+      tools_unavailable: resolvedTools.unavailableTools,
+      user,
+      createdAt: new Date(),
     });
 
     let validatedMessages: UIMessage[];
@@ -201,7 +245,7 @@ export function createChatbotHandler<TServices = unknown>(
         context,
         auditAdapter,
         ...(debugAdapter ? { debugAdapter } : {}),
-        tools: authorizedTools,
+        tools: resolvedTools.tools,
         toolExecutionRateLimitAdapter,
         ...(options.defaultToolTimeoutMs == null ? {} : { defaultToolTimeoutMs: options.defaultToolTimeoutMs }),
         ...(options.maxToolOutputBytes == null ? {} : { maxToolOutputBytes: options.maxToolOutputBytes }),
@@ -263,9 +307,10 @@ export function createChatbotHandler<TServices = unknown>(
       context,
       auditAdapter,
       ...(debugAdapter ? { debugAdapter } : {}),
-      tools: authorizedTools,
+      tools: resolvedTools.tools,
       toolExecutionRateLimitAdapter,
       ...(options.defaultToolTimeoutMs == null ? {} : { defaultToolTimeoutMs: options.defaultToolTimeoutMs }),
+      ...(options.maxToolOutputBytes == null ? {} : { maxToolOutputBytes: options.maxToolOutputBytes }),
     });
 
     const system = await renderSystemPrompt(options.systemPrompt, context);
@@ -294,7 +339,7 @@ export function createChatbotHandler<TServices = unknown>(
           conversationId: conversation.id,
           systemPrompt: system ?? null,
           messages: validatedMessages,
-          tools: authorizedTools,
+          tools: resolvedTools.tools,
           ...(initialModelInfo.provider ? { provider: initialModelInfo.provider } : {}),
           ...(initialModelInfo.model ? { model: initialModelInfo.model } : {}),
         }),

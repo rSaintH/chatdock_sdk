@@ -22,6 +22,7 @@ export {
   createNoopUsageAdapter,
 } from "./adapters/noop.js";
 export { defineSystemPrompt } from "./prompt/defineSystemPrompt.js";
+export { resolveRequestTools, type ResolvedTools } from "./routing/resolveTools.js";
 export { createAuditedExecutor } from "./tools/createAuditedExecutor.js";
 export {
   allowRoles,

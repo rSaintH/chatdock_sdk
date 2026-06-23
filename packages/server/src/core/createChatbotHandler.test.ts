@@ -471,6 +471,189 @@ describe("createChatbotHandler", () => {
     );
   });
 
+  it("resolves tools dynamically before validation, debug tracing, and model calls", async () => {
+    const auditRecord = vi.fn();
+    const debugRecord = vi.fn();
+    const detectIntent = vi.fn(async () => ({ intent: "clients" }));
+    const resolveTools = vi.fn(async ({ tools }) => ({
+      tools: tools.filter((tool) => tool.name === "search_docs"),
+    }));
+    const model = new MockLanguageModelV3({
+      doStream: {
+        stream: convertArrayToReadableStream([
+          { type: "stream-start", warnings: [] },
+          { type: "text-start", id: "text-1" },
+          { type: "text-delta", id: "text-1", delta: "Ok" },
+          { type: "text-end", id: "text-1" },
+          { type: "finish", usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } }, finishReason: "stop" },
+        ]),
+      },
+    });
+
+    const handler = createChatbotHandler({
+      model,
+      auditAdapter: { record: auditRecord },
+      debugAdapter: { record: debugRecord },
+      services: { crm: true },
+      authAdapter: {
+        authenticate: async () => ({
+          id: "user_1",
+          roles: ["admin"],
+          tenantId: "tenant_1",
+        }),
+      },
+      tools: [
+        {
+          name: "search_clients",
+          description: "Search clients.",
+          inputSchema: jsonSchema({ type: "object", properties: {} }),
+          execute: async () => ({ ok: true }),
+        },
+        {
+          name: "search_docs",
+          description: "Search docs.",
+          inputSchema: jsonSchema({ type: "object", properties: {} }),
+          execute: async () => ({ ok: true }),
+        },
+        {
+          name: "admin_only",
+          description: "Admin only.",
+          inputSchema: jsonSchema({ type: "object", properties: {} }),
+          execute: async () => ({ ok: true }),
+        },
+      ],
+      toolsByIntent: {
+        clients: ["search_clients", "search_docs"],
+      },
+      runtimeConfigAdapter: {
+        get: async () => ({
+          tools: ["search_clients", "search_docs", "admin_only"],
+        }),
+      },
+      detectIntent,
+      resolveTools,
+    });
+
+    const response = await handler(
+      new Request("https://example.com/api/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          provider: "auto",
+          trigger: "composer",
+          context: { pathname: "/clients" },
+          message: {
+            id: "user-msg-1",
+            role: "user",
+            parts: [{ type: "text", text: "Procure um cliente" }],
+          },
+        }),
+      }),
+    );
+
+    await response.text();
+
+    expect(response.status).toBe(200);
+    expect(model.doStreamCalls).toHaveLength(1);
+    expect(model.doStreamCalls[0]?.tools?.map((tool) => tool.name)).toEqual(["search_docs"]);
+    expect(detectIntent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: expect.objectContaining({
+          user: { id: "user_1", roles: ["admin"], tenantId: "tenant_1" },
+          tenant: { id: "tenant_1" },
+          provider: "auto",
+          trigger: "composer",
+          clientContext: { pathname: "/clients" },
+          services: { crm: true },
+        }),
+      }),
+    );
+    expect(resolveTools).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user: { id: "user_1", roles: ["admin"], tenantId: "tenant_1" },
+        intent: "clients",
+        tools: [
+          expect.objectContaining({ name: "search_clients" }),
+          expect.objectContaining({ name: "search_docs" }),
+        ],
+      }),
+    );
+    expect(auditRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "tools.resolved",
+        intent_detected: "clients",
+        tools_total: 3,
+        tools_sent: 1,
+        tools_unavailable: expect.arrayContaining([
+          expect.objectContaining({
+            name: "admin_only",
+            reason: 'Tool is not enabled for intent "clients".',
+          }),
+          expect.objectContaining({
+            name: "search_clients",
+            reason: "Filtered by resolveTools hook.",
+          }),
+        ]),
+      }),
+    );
+
+    const snapshotEvent = debugRecord.mock.calls
+      .map(([event]) => event)
+      .find((event) => event?.type === "trace.snapshot");
+
+    expect(snapshotEvent).toEqual(
+      expect.objectContaining({
+        trace: expect.objectContaining({
+          tools: [expect.objectContaining({ name: "search_docs" })],
+        }),
+      }),
+    );
+  });
+
+  it("returns a typed error when dynamic tool resolution fails", async () => {
+    const auditRecord = vi.fn();
+    const model = new MockLanguageModelV3({
+      doStream: {
+        stream: convertArrayToReadableStream([]),
+      },
+    });
+    const handler = createChatbotHandler({
+      model,
+      auditAdapter: { record: auditRecord },
+      detectIntent: async () => {
+        throw new Error("intent service unavailable");
+      },
+    });
+
+    const response = await handler(
+      new Request("https://example.com/api/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          message: {
+            id: "user-msg-1",
+            role: "user",
+            parts: [{ type: "text", text: "Oi" }],
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "intent service unavailable",
+      code: "unknown",
+      retryable: true,
+    });
+    expect(model.doStreamCalls).toHaveLength(0);
+    expect(auditRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "request.failed",
+        error: "intent service unavailable",
+      }),
+    );
+  });
+
   it("returns a typed error when no model is configured", async () => {
     const handler = createChatbotHandler({});
 

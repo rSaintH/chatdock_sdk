@@ -40,6 +40,10 @@ export type ChatbotRuntimeContext<TServices = unknown> = {
   clientContext: ChatbotClientContext;
   provider?: string;
   trigger?: string;
+  intent?: ChatIntent;
+  route?: IntentRoute;
+  runtimeConfig?: ChatbotRuntimeConfig | null;
+  toolAvailability?: ToolAvailability[];
   services: TServices;
 };
 
@@ -265,6 +269,16 @@ export type AuditEvent =
       createdAt: Date;
     }
   | {
+      type: "tools.resolved";
+      conversationId: string;
+      intent_detected?: string;
+      tools_total: number;
+      tools_sent: number;
+      tools_unavailable: ToolAvailability[];
+      user: ChatbotUser | null;
+      createdAt: Date;
+    }
+  | {
       type: "rate_limit.denied";
       conversationId?: string;
       scope?: "request" | "tool";
@@ -468,6 +482,74 @@ export type ChatbotTool<TInput = unknown, TOutput = unknown, TServices = unknown
   execute: ChatbotToolExecute<TInput, TOutput, TServices>;
 };
 
+export type ChatIntent = string;
+
+export type IntentRoute = {
+  intent: ChatIntent;
+  forcedTool?: string;
+  requiresTool?: boolean;
+  needsClarification?: boolean;
+  metadata?: Record<string, unknown>;
+};
+
+export type RuntimeToolConfig = {
+  name: string;
+  enabled?: boolean;
+  metadata?: Record<string, unknown>;
+};
+
+export type ChatbotRuntimeConfig = {
+  tools?: readonly (string | RuntimeToolConfig)[];
+  enabledToolNames?: readonly string[];
+  disabledToolNames?: readonly string[];
+  metadata?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+export type RuntimeConfigAdapter<TServices = unknown> = {
+  get(input: {
+    context: ChatbotRuntimeContext<TServices>;
+    body: ChatbotRequestBody;
+  }): Awaitable<ChatbotRuntimeConfig | null | undefined>;
+};
+
+export type IntentDetector<TServices = unknown> = (input: {
+  context: ChatbotRuntimeContext<TServices>;
+  body: ChatbotRequestBody;
+  messages: UIMessage[];
+  message?: UIMessage;
+  settings: ChatbotRuntimeConfig | null;
+}) => Awaitable<IntentRoute | ChatIntent | null | undefined>;
+
+export type ToolAvailability = {
+  name: string;
+  available: boolean;
+  reason?: string;
+};
+
+export type ToolResolverInput<TServices = unknown> = {
+  user: ChatbotUser | null;
+  intent?: ChatIntent;
+  route?: IntentRoute;
+  settings: ChatbotRuntimeConfig | null;
+  message?: UIMessage;
+  messages: UIMessage[];
+  context: ChatbotRuntimeContext<TServices>;
+  tools: ChatbotTool<unknown, unknown, TServices>[];
+  unavailableTools: ToolAvailability[];
+};
+
+export type ToolResolverResult<TServices = unknown> =
+  | ChatbotTool<unknown, unknown, TServices>[]
+  | {
+      tools: ChatbotTool<unknown, unknown, TServices>[];
+      unavailableTools?: ToolAvailability[];
+    };
+
+export type ResolveToolsHook<TServices = unknown> = (
+  input: ToolResolverInput<TServices>,
+) => Awaitable<ToolResolverResult<TServices> | null | undefined>;
+
 export type SystemPromptPart<TServices = unknown> =
   | string
   | ((context: ChatbotRuntimeContext<TServices>) => Awaitable<string | null | undefined>);
@@ -490,6 +572,10 @@ export type ChatbotHandlerOptions<TServices = unknown> = {
   requireAuth?: boolean;
   systemPrompt?: SystemPromptDefinition<TServices> | SystemPromptPart<TServices> | SystemPromptPart<TServices>[];
   tools?: ChatbotTool<unknown, unknown, TServices>[];
+  detectIntent?: IntentDetector<TServices>;
+  toolsByIntent?: Record<string, readonly string[]>;
+  resolveTools?: ResolveToolsHook<TServices>;
+  runtimeConfigAdapter?: RuntimeConfigAdapter<TServices>;
   services?: TServices;
   authAdapter?: AuthAdapter<TServices>;
   persistence?: PersistenceAdapter;

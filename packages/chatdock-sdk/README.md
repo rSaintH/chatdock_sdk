@@ -258,6 +258,10 @@ The generated `chatbot/tools.generated.ts` file exports:
 - `tools`: executable tool definitions for the backend route.
 - `toolCatalog`: public metadata that can be used in prompts or diagnostics without exposing executors.
 
+For larger agents, pass `detectIntent`, `toolsByIntent`, `runtimeConfigAdapter`,
+and `resolveTools` to `createChatbotHandler` so each turn sends only the tools
+available for the current intent, user, tenant settings, and message context.
+
 ## System Prompts
 
 Use `defineSystemPrompt` to compose static rules and dynamic request context:
