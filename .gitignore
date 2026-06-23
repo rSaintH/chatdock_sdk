@@ -1,3 +1,4 @@
+# Dependencies and generated output
 node_modules
 dist
 coverage
