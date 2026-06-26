@@ -1,6 +1,6 @@
 {
   "name": "@rsainth/chatdock-sdk",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "All-in-one SDK for adding tool-calling chatbots to React, Next.js, and Supabase applications.",
   "keywords": [
     "chatbot",

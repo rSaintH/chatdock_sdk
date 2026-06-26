@@ -27,6 +27,7 @@ const frontendSecretMarkers = [
 export async function doctorCommand(args: CliArgs) {
   const diagnostics: CliDiagnostic[] = [];
   const chatbotRoot = await inferChatbotRoot(args.cwd, args);
+  const hasLocalModelDefinition = await findLocalModelDefinition(args.cwd, chatbotRoot);
 
   const packageJson = await readPackageJson(args.cwd);
   if (!packageJson) {
@@ -46,7 +47,7 @@ export async function doctorCommand(args: CliArgs) {
       });
     }
 
-    diagnostics.push(...validateDependencyVersions(packageJson));
+    diagnostics.push(...validateDependencyVersions(packageJson, { hasLocalModelDefinition }));
   }
 
   if (!(await pathExists(path.join(args.cwd, chatbotRoot, "system-prompt.ts")))) {
@@ -75,7 +76,7 @@ export async function doctorCommand(args: CliArgs) {
 
   diagnostics.push(...(await findUnsafeHistoryRoutes(args.cwd)));
   diagnostics.push(...(await findRiskyFrontendImports(args.cwd)));
-  diagnostics.push(...(await findInMemoryPersistenceUsage(args.cwd)));
+  diagnostics.push(...(await findInMemoryPersistenceUsage(args.cwd, chatbotRoot)));
   diagnostics.push(...(await findUnsafeChatRoutes(args.cwd)));
 
   const projectTypes = await detectProjectTypes(args.cwd);
@@ -97,7 +98,10 @@ export async function doctorCommand(args: CliArgs) {
   }
 }
 
-function validateDependencyVersions(packageJson: NonNullable<Awaited<ReturnType<typeof readPackageJson>>>) {
+function validateDependencyVersions(
+  packageJson: NonNullable<Awaited<ReturnType<typeof readPackageJson>>>,
+  options: { hasLocalModelDefinition?: boolean } = {},
+) {
   const diagnostics: CliDiagnostic[] = [];
   const expectedMajors: Record<string, number> = {
     ai: 6,
@@ -134,7 +138,10 @@ function validateDependencyVersions(packageJson: NonNullable<Awaited<ReturnType<
     "@ai-sdk/anthropic",
     "@ai-sdk/gateway",
   ];
-  if (!providerDependencies.some((dependency) => hasDependency(packageJson, dependency))) {
+  if (
+    !providerDependencies.some((dependency) => hasDependency(packageJson, dependency)) &&
+    !options.hasLocalModelDefinition
+  ) {
     diagnostics.push({
       severity: "warn",
       message: `No AI SDK provider dependency was found. Install one of ${providerDependencies.map((dependency) => `"${dependency}"`).join(", ")} or provide a compatible model another way.`,
@@ -164,6 +171,35 @@ async function detectProjectTypes(cwd: string) {
   if (await pathExists(path.join(cwd, "supabase", "functions"))) detected.push("Supabase Edge Functions");
 
   return [...new Set(detected)];
+}
+
+async function findLocalModelDefinition(cwd: string, chatbotRoot: string) {
+  const roots = [
+    path.join(cwd, chatbotRoot),
+    path.join(cwd, "src"),
+    path.join(cwd, "app"),
+    path.join(cwd, "pages"),
+  ];
+  const sourceFiles = [
+    ...new Set(
+      (await Promise.all(roots.map((root) => listFilesRecursive(root))))
+        .flat()
+        .filter((filePath) => /\.(tsx?|jsx?)$/.test(filePath)),
+    ),
+  ];
+
+  for (const filePath of sourceFiles) {
+    const sourceText = await readFile(filePath, "utf8");
+    if (
+      sourceText.includes("ChatbotModel") &&
+      sourceText.includes("specificationVersion") &&
+      sourceText.includes("modelId")
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 async function findRiskyFrontendImports(cwd: string) {
@@ -217,13 +253,14 @@ async function findRiskyFrontendImports(cwd: string) {
   return warnings;
 }
 
-async function findInMemoryPersistenceUsage(cwd: string) {
+async function findInMemoryPersistenceUsage(cwd: string, chatbotRoot: string) {
   const warnings: CliDiagnostic[] = [];
-  const appRoots = ["app", path.join("src", "app")].map((root) => path.join(cwd, root));
+  const appRoots = ["app", path.join("src", "app"), chatbotRoot].map((root) => path.join(cwd, root));
   const appFiles = (
     await Promise.all(appRoots.map((root) => listFilesRecursive(root)))
   )
     .flat()
+    .filter((filePath, index, files) => files.indexOf(filePath) === index)
     .filter((filePath) => /\.(tsx?|jsx?)$/.test(filePath));
 
   for (const filePath of appFiles) {

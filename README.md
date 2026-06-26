@@ -59,16 +59,18 @@ The SDK does not replace your app auth. Pass your own auth adapter or validate t
 Define tools on the backend, keep authorization close to the tool, and only expose tools the current user can actually use.
 
 ```ts
-import { defineTool, allowRoles, createToolRegistry } from "@rsainth/server";
+import { allowRoles, defineTool } from "@rsainth/server";
+import { z } from "zod";
 
-const tools = createToolRegistry([
+const tools = [
   defineTool({
-    name: "get-status",
+    name: "get_status",
     description: "Returns the current status.",
-    authorize: allowRoles("admin"),
+    inputSchema: z.object({}),
+    authorize: allowRoles(["admin"]),
     execute: async () => ({ ok: true }),
   }),
-]);
+] as const;
 ```
 
 ### 4. Connect the UI

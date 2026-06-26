@@ -36,6 +36,44 @@ describe("doctorCommand", () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("No AI SDK provider dependency was found"));
   });
 
+  it("does not warn about missing provider packages when a local model is defined", async () => {
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "chatdock-sdk-doctor-"));
+    await writeFile(
+      path.join(cwd, "package.json"),
+      JSON.stringify({
+        dependencies: {
+          ai: "^6.0.0",
+          "@ai-sdk/react": "^3.0.0",
+          react: "^19.0.0",
+        },
+      }),
+      "utf8",
+    );
+    await mkdir(path.join(cwd, "src", "chatbot"), { recursive: true });
+    await writeFile(path.join(cwd, "src", "chatbot", "system-prompt.ts"), "export const systemPrompt = '';\n", "utf8");
+    await writeFile(path.join(cwd, "src", "chatbot", "tools.generated.ts"), "export const tools = [];\n", "utf8");
+    await writeFile(
+      path.join(cwd, "src", "chatbot", "local-model.ts"),
+      [
+        'import type { ChatbotModel } from "@rsainth/chatdock-sdk";',
+        "export const localModel = {",
+        '  specificationVersion: "v2",',
+        '  provider: "local",',
+        '  modelId: "local-test",',
+        "  supportedUrls: {},",
+        "} as unknown as ChatbotModel;",
+      ].join("\n"),
+      "utf8",
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await doctorCommand(parseArgs(["doctor", "--cwd", cwd]));
+
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("No AI SDK provider dependency was found"));
+  });
+
   it("fails when tool validation has errors", async () => {
     const cwd = await mkdtemp(path.join(os.tmpdir(), "chatdock-sdk-doctor-"));
     await writeFile(
@@ -184,6 +222,50 @@ describe("doctorCommand", () => {
     );
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('app/api/chat/route.ts uses createInMemoryPersistence'),
+    );
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("warns when chatbot persistence modules use in-memory persistence", async () => {
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "chatdock-sdk-doctor-"));
+    await writeValidPackageJson(cwd);
+    await mkdir(path.join(cwd, "src", "chatbot"), { recursive: true });
+    await writeFile(path.join(cwd, "src", "chatbot", "system-prompt.ts"), "export const systemPrompt = '';\n", "utf8");
+    await writeFile(path.join(cwd, "src", "chatbot", "tools.generated.ts"), "export const tools = [];\n", "utf8");
+    await writeFile(
+      path.join(cwd, "src", "chatbot", "persistence.ts"),
+      [
+        'import { createInMemoryPersistence } from "@rsainth/chatdock-sdk";',
+        "export const persistence = createInMemoryPersistence();",
+      ].join("\n"),
+      "utf8",
+    );
+    const routeDir = path.join(cwd, "app", "api", "chat");
+    await mkdir(routeDir, { recursive: true });
+    await writeFile(
+      path.join(routeDir, "route.ts"),
+      [
+        'import { createNextChatbotRoute } from "@rsainth/chatdock-sdk/next";',
+        'import { persistence } from "../../../src/chatbot/persistence";',
+        "export const POST = createNextChatbotRoute({",
+        "  requireAuth: true,",
+        "  auth: {},",
+        "  model: {} as never,",
+        "  persistence,",
+        "  rateLimitAdapter: {} as never,",
+        "  tools: [],",
+        "});",
+      ].join("\n"),
+      "utf8",
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await expect(doctorCommand(parseArgs(["doctor", "--cwd", cwd]))).resolves.toBeUndefined();
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("src/chatbot/persistence.ts uses createInMemoryPersistence"),
     );
     expect(error).not.toHaveBeenCalled();
   });
