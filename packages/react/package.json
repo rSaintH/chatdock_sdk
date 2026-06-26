@@ -1,8 +1,10 @@
 {
-  "name": "@rscheln/react",
-  "version": "0.1.2",
+  "name": "@rsainth/react",
+  "version": "0.1.3",
   "description": "React components and hooks for embedding Chatdock SDK chat UIs.",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "sideEffects": [
     "./src/styles.css"
   ],
@@ -24,7 +26,7 @@
     "src/styles.css"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsup src/index.ts --format esm --dts --sourcemap --clean",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

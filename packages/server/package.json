@@ -1,6 +1,6 @@
 {
-  "name": "@rscheln/server",
-  "version": "0.1.2",
+  "name": "@rsainth/server",
+  "version": "0.1.3",
   "description": "Framework-agnostic backend core for Chatdock SDK.",
   "type": "module",
   "sideEffects": false,

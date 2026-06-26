@@ -55,7 +55,7 @@ describe("doctorCommand", () => {
     await writeFile(
       path.join(toolDir, "index.ts"),
       [
-        'import { defineTool } from "@rscheln/chatdock-sdk";',
+        'import { defineTool } from "@rsainth/chatdock-sdk";',
         "export default defineTool({",
         '  name: "broken-tool",',
         '  description: "Broken tool",',
@@ -83,7 +83,7 @@ describe("doctorCommand", () => {
     await writeFile(
       path.join(toolDir, "index.ts"),
       [
-        'import { defineTool } from "@rscheln/chatdock-sdk";',
+        'import { defineTool } from "@rsainth/chatdock-sdk";',
         "export default defineTool({",
         '  name: "disable_user",',
         '  description: "Disables a user account.",',
@@ -125,7 +125,7 @@ describe("doctorCommand", () => {
     await writeFile(
       path.join(routeDir, "route.ts"),
       [
-        'import { createNextChatbotRoute } from "@rscheln/chatdock-sdk/next";',
+        'import { createNextChatbotRoute } from "@rsainth/chatdock-sdk/next";',
         "export const POST = createNextChatbotRoute({",
         "  requireAuth: true,",
         "  systemPrompt: 'Hello',",
@@ -148,6 +148,109 @@ describe("doctorCommand", () => {
     );
   });
 
+  it("warns when production-looking chat routes omit auth, model and durable persistence", async () => {
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "chatdock-sdk-doctor-"));
+    await writeValidPackageJson(cwd);
+    await mkdir(path.join(cwd, "chatbot"), { recursive: true });
+    await writeFile(path.join(cwd, "chatbot", "system-prompt.ts"), "export const systemPrompt = '';\n", "utf8");
+    await writeFile(path.join(cwd, "chatbot", "tools.generated.ts"), "export const tools = [];\n", "utf8");
+    const routeDir = path.join(cwd, "app", "api", "chat");
+    await mkdir(routeDir, { recursive: true });
+    await writeFile(
+      path.join(routeDir, "route.ts"),
+      [
+        'import { createInMemoryPersistence } from "@rsainth/chatdock-sdk";',
+        'import { createNextChatbotRoute } from "@rsainth/chatdock-sdk/next";',
+        "export const POST = createNextChatbotRoute({",
+        "  requireAuth: true,",
+        "  persistence: createInMemoryPersistence(),",
+        "  systemPrompt: 'Hello',",
+        "  tools: [],",
+        "});",
+      ].join("\n"),
+      "utf8",
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await expect(doctorCommand(parseArgs(["doctor", "--cwd", cwd]))).resolves.toBeUndefined();
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('app/api/chat/route.ts sets requireAuth: true without an obvious auth or authAdapter'),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('app/api/chat/route.ts does not define model, models or fallbackModel'),
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('app/api/chat/route.ts uses createInMemoryPersistence'),
+    );
+    expect(error).not.toHaveBeenCalled();
+  });
+
+  it("fails when frontend files import server-only modules", async () => {
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "chatdock-sdk-doctor-"));
+    await writeValidPackageJson(cwd);
+    await mkdir(path.join(cwd, "chatbot"), { recursive: true });
+    await writeFile(path.join(cwd, "chatbot", "system-prompt.ts"), "export const systemPrompt = '';\n", "utf8");
+    await writeFile(path.join(cwd, "chatbot", "tools.generated.ts"), "export const tools = [];\n", "utf8");
+    const pageDir = path.join(cwd, "app");
+    await mkdir(pageDir, { recursive: true });
+    await writeFile(
+      path.join(pageDir, "page.tsx"),
+      [
+        'import { createConversationHistoryHandler } from "@rsainth/chatdock-sdk/server";',
+        "export default function Page() {",
+        "  void createConversationHistoryHandler;",
+        "  return null;",
+        "}",
+      ].join("\n"),
+      "utf8",
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await expect(doctorCommand(parseArgs(["doctor", "--cwd", cwd]))).rejects.toThrow(
+      /critical issues were found/,
+    );
+
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining('app/page.tsx references server-only module "@rsainth/chatdock-sdk/server"'),
+    );
+  });
+
+  it("fails when frontend files reference server-only secret markers", async () => {
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "chatdock-sdk-doctor-"));
+    await writeValidPackageJson(cwd);
+    await mkdir(path.join(cwd, "chatbot"), { recursive: true });
+    await writeFile(path.join(cwd, "chatbot", "system-prompt.ts"), "export const systemPrompt = '';\n", "utf8");
+    await writeFile(path.join(cwd, "chatbot", "tools.generated.ts"), "export const tools = [];\n", "utf8");
+    const pageDir = path.join(cwd, "app");
+    await mkdir(pageDir, { recursive: true });
+    await writeFile(
+      path.join(pageDir, "page.tsx"),
+      [
+        "export default function Page() {",
+        '  const envName = "OPENAI_API_KEY";',
+        "  return envName;",
+        "}",
+      ].join("\n"),
+      "utf8",
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await expect(doctorCommand(parseArgs(["doctor", "--cwd", cwd]))).rejects.toThrow(
+      /critical issues were found/,
+    );
+
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining('app/page.tsx references server-only secret marker "OPENAI_API_KEY"'),
+    );
+  });
+
   it("fails when chat history routes omit auth adapters", async () => {
     const cwd = await mkdtemp(path.join(os.tmpdir(), "chatdock-sdk-doctor-"));
     await writeValidPackageJson(cwd);
@@ -160,7 +263,7 @@ describe("doctorCommand", () => {
     await writeFile(
       path.join(historyRouteDir, "route.ts"),
       [
-        'import { createConversationHistoryHandler } from "@rscheln/chatdock-sdk";',
+        'import { createConversationHistoryHandler } from "@rsainth/chatdock-sdk";',
         "export const handler = createConversationHistoryHandler({",
         "  persistence: {},",
         "  basePath: '/api/chat-history',",

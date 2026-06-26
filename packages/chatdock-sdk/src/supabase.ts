@@ -1,1 +1,1 @@
-export * from "@rscheln/supabase";
+export * from "@rsainth/supabase";

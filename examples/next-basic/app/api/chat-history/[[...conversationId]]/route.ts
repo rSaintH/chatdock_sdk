@@ -1,4 +1,4 @@
-import { createConversationHistoryHandler } from "@rscheln/chatdock-sdk";
+import { createConversationHistoryHandler } from "@rsainth/chatdock-sdk";
 import { auth } from "@/chatbot/auth";
 import { persistence } from "@/chatbot/persistence";
 

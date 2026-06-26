@@ -1,4 +1,4 @@
-import "@rscheln/chatdock-sdk/styles.css";
+import "@rsainth/chatdock-sdk/styles.css";
 import "./styles.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
@@ -6,7 +6,7 @@ import { AppShell } from "./shell";
 
 export const metadata: Metadata = {
   title: "Chatdock SDK Next Basic",
-  description: "Minimal runnable Next.js example for @rscheln/chatdock-sdk.",
+  description: "Minimal runnable Next.js example for @rsainth/chatdock-sdk.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

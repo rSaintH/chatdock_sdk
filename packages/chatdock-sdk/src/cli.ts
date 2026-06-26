@@ -1,2 +1,2 @@
 #!/usr/bin/env node
-import "@rscheln/cli";
+import "@rsainth/cli";

@@ -7,13 +7,16 @@ import { getDependencyVersion, hasDependency, readPackageJson } from "../utils/p
 import { discoverTools, inferChatbotRoot } from "../utils/tools.js";
 
 const serverOnlyImports = [
-  "@rscheln/chatdock-sdk",
-  "@rscheln/chatdock-sdk/server",
-  "@rscheln/chatdock-sdk/next",
-  "@rscheln/chatdock-sdk/supabase",
-  "@rscheln/server",
-  "@rscheln/next",
-  "@rscheln/supabase",
+  "@rsainth/chatdock-sdk",
+  "@rsainth/chatdock-sdk/server",
+  "@rsainth/chatdock-sdk/next",
+  "@rsainth/chatdock-sdk/supabase",
+  "@rsainth/server",
+  "@rsainth/next",
+  "@rsainth/supabase",
+];
+
+const frontendSecretMarkers = [
   "service_role",
   "SUPABASE_SERVICE_ROLE",
   "OPENAI_API_KEY",
@@ -35,7 +38,7 @@ export async function doctorCommand(args: CliArgs) {
       }
     }
 
-    const hasAllInOnePackage = hasDependency(packageJson, "@rscheln/chatdock-sdk");
+    const hasAllInOnePackage = hasDependency(packageJson, "@rsainth/chatdock-sdk");
     if (!hasAllInOnePackage && !hasDependency(packageJson, "@ai-sdk/react")) {
       diagnostics.push({
         severity: "warn",
@@ -72,6 +75,7 @@ export async function doctorCommand(args: CliArgs) {
 
   diagnostics.push(...(await findUnsafeHistoryRoutes(args.cwd)));
   diagnostics.push(...(await findRiskyFrontendImports(args.cwd)));
+  diagnostics.push(...(await findInMemoryPersistenceUsage(args.cwd)));
   diagnostics.push(...(await findUnsafeChatRoutes(args.cwd)));
 
   const projectTypes = await detectProjectTypes(args.cwd);
@@ -187,15 +191,51 @@ async function findRiskyFrontendImports(cwd: string) {
       continue;
     }
 
-    const contents = await import("node:fs/promises").then((fs) => fs.readFile(filePath, "utf8"));
-    for (const risky of serverOnlyImports) {
-      if (contents.includes(risky)) {
+    const sourceText = await readFile(filePath, "utf8");
+    const source = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    for (const moduleSpecifier of findModuleSpecifiers(source)) {
+      for (const risky of serverOnlyImports) {
+        if (moduleSpecifier === risky) {
+          warnings.push({
+            severity: "error",
+            message: `${path.relative(cwd, filePath)} references server-only module "${risky}". Move that import to a server-only module.`,
+          });
+        }
+      }
+    }
+
+    for (const marker of frontendSecretMarkers) {
+      if (sourceText.includes(marker)) {
         warnings.push({
           severity: "error",
-          message: `${path.relative(cwd, filePath)} references server-only value "${risky}". Move that import or secret to a server-only module.`,
+          message: `${path.relative(cwd, filePath)} references server-only secret marker "${marker}". Move secrets and service-role keys to server-only modules.`,
         });
       }
     }
+  }
+
+  return warnings;
+}
+
+async function findInMemoryPersistenceUsage(cwd: string) {
+  const warnings: CliDiagnostic[] = [];
+  const appRoots = ["app", path.join("src", "app")].map((root) => path.join(cwd, root));
+  const appFiles = (
+    await Promise.all(appRoots.map((root) => listFilesRecursive(root)))
+  )
+    .flat()
+    .filter((filePath) => /\.(tsx?|jsx?)$/.test(filePath));
+
+  for (const filePath of appFiles) {
+    const source = await readFile(filePath, "utf8");
+    if (!source.includes("createInMemoryPersistence")) {
+      continue;
+    }
+
+    warnings.push({
+      severity: "warn",
+      message: `${path.relative(cwd, filePath)} uses createInMemoryPersistence. Keep in-memory persistence for demos and tests; use durable persistence in production.`,
+    });
   }
 
   return warnings;
@@ -247,8 +287,20 @@ async function findUnsafeChatRoutes(cwd: string) {
       const relativePath = relative(cwd, routePath);
       if (!hasBooleanProperty(config, "requireAuth", true)) {
         warnings.push({
-          severity: "error",
+          severity: "warn",
           message: `${relativePath} uses createNextChatbotRoute/createSupabaseChatbotHandler without "requireAuth: true". Require auth or isolate this route from private tools and data.`,
+        });
+      }
+      if (hasBooleanProperty(config, "requireAuth", true) && !hasAnyProperty(config, ["authAdapter", "auth"])) {
+        warnings.push({
+          severity: "warn",
+          message: `${relativePath} sets requireAuth: true without an obvious auth or authAdapter. Add authAdapter/auth so the route can actually authenticate.`,
+        });
+      }
+      if (!hasAnyProperty(config, ["model", "models", "fallbackModel"])) {
+        warnings.push({
+          severity: "warn",
+          message: `${relativePath} does not define model, models or fallbackModel. Add one so the handler has an AI model to call.`,
         });
       }
       if (!hasProperty(config, "rateLimitAdapter")) {
@@ -318,7 +370,7 @@ function findChatHandlerConfigs(source: ts.SourceFile) {
   const visit = (node: ts.Node) => {
     if (
       ts.isCallExpression(node) &&
-      isIdentifierNamed(node.expression, ["createNextChatbotRoute", "createSupabaseChatbotHandler"])
+      isIdentifierNamed(node.expression, ["createNextChatbotRoute", "createSupabaseChatbotHandler", "createChatbotHandler"])
     ) {
       const firstArgument = node.arguments[0];
       if (firstArgument && ts.isObjectLiteralExpression(firstArgument)) {
@@ -370,6 +422,10 @@ function hasProperty(objectLiteral: ts.ObjectLiteralExpression, propertyName: st
   return objectLiteral.properties.some((property) => propertyNameOf(property.name) === propertyName);
 }
 
+function hasAnyProperty(objectLiteral: ts.ObjectLiteralExpression, propertyNames: string[]) {
+  return propertyNames.some((propertyName) => hasProperty(objectLiteral, propertyName));
+}
+
 function hasBooleanProperty(objectLiteral: ts.ObjectLiteralExpression, propertyName: string, value: boolean) {
   const property = objectLiteral.properties.find((candidate) => propertyNameOf(candidate.name) === propertyName);
   if (!property || !ts.isPropertyAssignment(property)) {
@@ -393,6 +449,43 @@ function propertyNameOf(name: ts.PropertyName | undefined) {
 
 function isIdentifierNamed(expression: ts.Expression, names: string[]) {
   return ts.isIdentifier(expression) && names.includes(expression.text);
+}
+
+function findModuleSpecifiers(source: ts.SourceFile) {
+  const specifiers: string[] = [];
+
+  const visit = (node: ts.Node) => {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+      const moduleSpecifier = node.moduleSpecifier;
+      if (moduleSpecifier && ts.isStringLiteralLike(moduleSpecifier)) {
+        specifiers.push(moduleSpecifier.text);
+      }
+    }
+
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "require" &&
+      node.arguments.length > 0
+    ) {
+      const firstArgument = node.arguments[0];
+      if (ts.isStringLiteralLike(firstArgument)) {
+        specifiers.push(firstArgument.text);
+      }
+    }
+
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      const firstArgument = node.arguments[0];
+      if (firstArgument && ts.isStringLiteralLike(firstArgument)) {
+        specifiers.push(firstArgument.text);
+      }
+    }
+
+    ts.forEachChild(node, visit);
+  };
+
+  visit(source);
+  return specifiers;
 }
 
 function relative(cwd: string, filePath: string) {

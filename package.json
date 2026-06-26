@@ -9,6 +9,7 @@
     "test": "corepack pnpm -r --if-present test",
     "lint": "corepack pnpm -r --if-present lint",
     "clean": "corepack pnpm -r --if-present clean",
+    "release:check": "corepack pnpm -r --if-present typecheck && corepack pnpm -r --if-present test && corepack pnpm -r --if-present build && corepack pnpm --filter @rsainth/chatdock-sdk smoke:imports && corepack pnpm --filter @rsainth/example-next-basic build",
     "changeset": "corepack pnpm exec changeset",
     "release:version": "corepack pnpm exec changeset version && corepack pnpm install --lockfile-only",
     "release:publish": "corepack pnpm exec changeset publish"

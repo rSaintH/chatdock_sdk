@@ -3,7 +3,7 @@ import {
   type AuthAdapter,
   type ChatbotHandlerOptions,
   type ChatbotUser
-} from "@rscheln/server";
+} from "@rsainth/server";
 
 export type NextChatbotRouteOptions<AppContext = unknown, AppUser = unknown> =
   ChatbotHandlerOptions<AppContext> & {

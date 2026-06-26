@@ -19,36 +19,36 @@ It gives you the reusable UI, backend handlers, auth and persistence adapters, t
 
 ## Packages
 
-All packages are published under the `@rscheln/*` scope.
+All packages are published under the `@rsainth/*` scope.
 
-- `@rscheln/chatdock-sdk`: all-in-one package that reexports the SDK surface
-- `@rscheln/react`: React components, hooks, transport, and history helpers
-- `@rscheln/server`: framework-agnostic backend core, tools, adapters, prompts, tests, and utilities
-- `@rscheln/next`: Next.js App Router route helper and header auth adapter
-- `@rscheln/supabase`: Supabase chat handler, auth adapter, persistence, observability, rate limit, and knowledge adapters
-- `@rscheln/cli`: `init`, `make-tool`, `sync-tools`, and `doctor`
+- `@rsainth/chatdock-sdk`: all-in-one package that reexports the SDK surface
+- `@rsainth/react`: React components, hooks, transport, and history helpers
+- `@rsainth/server`: framework-agnostic backend core, tools, adapters, prompts, tests, and utilities
+- `@rsainth/next`: Next.js App Router route helper and header auth adapter
+- `@rsainth/supabase`: Supabase chat handler, auth adapter, persistence, observability, rate limit, and knowledge adapters
+- `@rsainth/cli`: `init`, `make-tool`, `sync-tools`, and `doctor`
 
 ## Install
 
 ```bash
-npm install @rscheln/chatdock-sdk
+npm install @rsainth/chatdock-sdk
 ```
 
 Install only the pieces you need:
 
 ```bash
-npm install @rscheln/react @rscheln/server @rscheln/next @rscheln/supabase
-npm install -D @rscheln/cli
+npm install @rsainth/react @rsainth/server @rsainth/next @rsainth/supabase
+npm install -D @rsainth/cli
 ```
 
 ## Quick Start
 
 ### 1. Pick your integration path
 
-- Use `@rscheln/next` if your app is a Next.js App Router app.
-- Use `@rscheln/supabase` if your runtime is Supabase Edge Functions.
-- Use `@rscheln/react` if you only need the UI layer and already have a backend.
-- Use `@rscheln/server` when you want the backend core without framework helpers.
+- Use `@rsainth/next` if your app is a Next.js App Router app.
+- Use `@rsainth/supabase` if your runtime is Supabase Edge Functions.
+- Use `@rsainth/react` if you only need the UI layer and already have a backend.
+- Use `@rsainth/server` when you want the backend core without framework helpers.
 
 ### 2. Wire auth and persistence
 
@@ -59,7 +59,7 @@ The SDK does not replace your app auth. Pass your own auth adapter or validate t
 Define tools on the backend, keep authorization close to the tool, and only expose tools the current user can actually use.
 
 ```ts
-import { defineTool, allowRoles, createToolRegistry } from "@rscheln/server";
+import { defineTool, allowRoles, createToolRegistry } from "@rsainth/server";
 
 const tools = createToolRegistry([
   defineTool({
@@ -74,11 +74,22 @@ const tools = createToolRegistry([
 ### 4. Connect the UI
 
 ```tsx
-import { ChatbotProvider, ChatbotLauncher } from "@rscheln/react";
+import { ChatbotProvider, ChatbotLauncher } from "@rsainth/react";
 
 export function App() {
   return (
-    <ChatbotProvider transport={/* your transport */}>
+    <ChatbotProvider
+      endpoint="/api/chat"
+      getAuthToken={async () => window.localStorage.getItem("access_token")}
+      context={() => ({
+        pathname: window.location.pathname,
+        search: window.location.search,
+      })}
+      initialSuggestions={[
+        "Summarize this page",
+        "What can you help with?",
+      ]}
+    >
       <ChatbotLauncher />
     </ChatbotProvider>
   );
@@ -92,11 +103,14 @@ export function App() {
 Use `createNextChatbotRoute` for a chat route and `createHeaderAuthAdapter` when your auth token lives in request headers.
 
 ```ts
-import { createNextChatbotRoute, createHeaderAuthAdapter } from "@rscheln/next";
+import { createNextChatbotRoute, createHeaderAuthAdapter } from "@rsainth/next";
+import { openai } from "@ai-sdk/openai";
 
 export const POST = createNextChatbotRoute({
+  requireAuth: true,
+  model: openai("gpt-4o-mini"),
   authAdapter: createHeaderAuthAdapter(async ({ token }) => {
-    return { userId: token, tenantId: "default" };
+    return token ? { id: token, tenantId: "default" } : null;
   }),
 });
 ```
@@ -106,9 +120,12 @@ export const POST = createNextChatbotRoute({
 Use `createSupabaseChatbotHandler` when the chat endpoint lives in Supabase Edge Functions, and pair it with Supabase adapters for auth, persistence, audit, usage, rate limits, and knowledge search.
 
 ```ts
-import { createSupabaseChatbotHandler, createSupabaseAuthAdapter } from "@rscheln/supabase";
+import { createSupabaseChatbotHandler, createSupabaseAuthAdapter } from "@rsainth/supabase";
+import { openai } from "@ai-sdk/openai";
 
 export const handler = createSupabaseChatbotHandler({
+  requireAuth: true,
+  model: openai("gpt-4o-mini"),
   auth: createSupabaseAuthAdapter({ client: userClient }),
 });
 ```
@@ -174,18 +191,21 @@ Example:
 npx chatdock-sdk init --next --supabase
 ```
 
-## Security Baseline
+## Production Baseline
 
-For production, the recommended baseline is:
+The SDK does not host your chatbot. For production, keep the system-owned pieces in your app and configure:
 
-- authenticate every chat route
-- authorize every tool
-- rate limit chat requests
-- rate limit destructive tool execution separately
-- keep conversation history behind an authenticated backend route
-- keep business data access in your app, not inside the SDK
-- scope persistence and knowledge queries by tenant when you are multi-tenant
-- use Supabase RLS and service-role access only where appropriate
+- authenticated chat routes with `requireAuth: true`
+- an auth adapter when auth is required
+- a model, `models` with `defaultProvider`, or `fallbackModel`
+- durable persistence; use `createInMemoryPersistence()` only for demos and tests
+- request rate limits for chat and destructive tools
+- backend-only secrets and service-role keys
+- remote history behind an authenticated route
+- authorization close to each tool executor
+- business data access in your app, not inside the SDK
+- tenant scoping for persistence and knowledge queries
+- Supabase RLS and service-role access only where appropriate
 
 See:
 
@@ -206,18 +226,24 @@ See:
 
 ```bash
 pnpm install
-pnpm build
 pnpm typecheck
 pnpm test
+pnpm build
 pnpm lint
+```
+
+Before publishing, run the full release check:
+
+```bash
+pnpm release:check
 ```
 
 ## Publishing
 
 ```bash
 npm login
+pnpm release:check
 pnpm release:version
-pnpm build
 pnpm release:publish
 ```
 

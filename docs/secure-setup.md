@@ -10,13 +10,13 @@ Require authentication on every internal chat route:
 
 ```ts
 import { openai } from "@ai-sdk/openai";
-import { createNextChatbotRoute, createHeaderAuthAdapter } from "@rscheln/chatdock-sdk/next";
+import { createNextChatbotRoute, createHeaderAuthAdapter } from "@rsainth/chatdock-sdk/next";
 import {
   createSupabaseAuditAdapter,
   createSupabasePersistence,
   createSupabaseRateLimitAdapter,
   createSupabaseUsageAdapter,
-} from "@rscheln/chatdock-sdk/supabase";
+} from "@rsainth/chatdock-sdk/supabase";
 import { adminClient } from "@/lib/supabase-admin";
 import { tools } from "@/chatbot/tools.generated";
 import { systemPrompt } from "@/chatbot/system-prompt";
@@ -63,6 +63,7 @@ export const POST = createNextChatbotRoute({
 ```
 
 `requireAuth: true` must be paired with an auth adapter. Unauthenticated requests return `401` before persistence, rate limits, model calls or tool execution.
+Every production route must also set `model`, `models` with `defaultProvider`, or `fallbackModel`.
 
 ## Request Rate Limits
 
@@ -82,7 +83,7 @@ Request limits and tool execution limits are separate. A user can send few messa
 Mark side-effecting tools explicitly:
 
 ```ts
-import { defineTool, allowRoles, allOfToolAuthorizers, requireHumanApproval } from "@rscheln/chatdock-sdk";
+import { defineTool, allowRoles, allOfToolAuthorizers, requireHumanApproval } from "@rsainth/chatdock-sdk";
 
 export default defineTool({
   name: "disable_user",
@@ -148,15 +149,17 @@ OPENAI_API_KEY=...
 For Supabase Edge Functions, authenticate with `createSupabaseAuthAdapter` and persist with `createSupabasePersistence`:
 
 ```ts
+import { openai } from "@ai-sdk/openai";
 import {
   createSupabaseAuthAdapter,
   createSupabaseChatbotHandler,
   createSupabasePersistence,
   createSupabaseRateLimitAdapter,
-} from "@rscheln/chatdock-sdk/supabase";
+} from "@rsainth/chatdock-sdk/supabase";
 
 Deno.serve(createSupabaseChatbotHandler({
   requireAuth: true,
+  model: openai("gpt-4o-mini"),
   auth: createSupabaseAuthAdapter({ client: userClient }),
   persistence: createSupabasePersistence({
     adminClient,
@@ -184,7 +187,7 @@ Expose remote history from a separate authenticated backend route. The server he
 Next.js route shape:
 
 ```ts
-import { createConversationHistoryHandler } from "@rscheln/chatdock-sdk";
+import { createConversationHistoryHandler } from "@rsainth/chatdock-sdk";
 import { auth } from "@/chatbot/auth";
 import { persistence } from "@/chatbot/persistence";
 
@@ -200,7 +203,7 @@ export { handler as GET, handler as PATCH, handler as DELETE };
 React can wire history with the exported remote history hook. Keep `ChatbotProvider` configured with the same auth token source, then point `useChatbotConversations` at the history endpoint:
 
 ```tsx
-import { useChatbotConversations } from "@rscheln/chatdock-sdk/react";
+import { useChatbotConversations } from "@rsainth/chatdock-sdk/react";
 
 function RemoteHistoryList() {
   const history = useChatbotConversations({
@@ -225,7 +228,7 @@ The hook reuses `ChatbotProvider` auth/header callbacks by default, falls back t
 If you want the full history surface instead of wiring the list by hand, the React package also exports `ChatbotHistoryPanel`:
 
 ```tsx
-import { ChatbotHistoryPanel } from "@rscheln/chatdock-sdk/react";
+import { ChatbotHistoryPanel } from "@rsainth/chatdock-sdk/react";
 
 function HistorySidebar() {
   return (
@@ -245,8 +248,8 @@ The packaged panel handles list, search, open, rename and delete interactions wh
 Knowledge search is a tool like any other. The SDK provides `createKnowledgeTool` and a Supabase/pgvector adapter. The app still owns ingestion, embedding model choice, document ACLs, and connector sync.
 
 ```ts
-import { createKnowledgeTool, allowTenant } from "@rscheln/chatdock-sdk";
-import { createSupabaseKnowledgeAdapter } from "@rscheln/chatdock-sdk/supabase";
+import { createKnowledgeTool, allowTenant } from "@rsainth/chatdock-sdk";
+import { createSupabaseKnowledgeAdapter } from "@rsainth/chatdock-sdk/supabase";
 
 const knowledgeAdapter = createSupabaseKnowledgeAdapter({
   adminClient,

@@ -13,7 +13,7 @@ describe("syncToolsOnce", () => {
     await writeFile(
       path.join(toolDir, "index.ts"),
       [
-        'import { defineTool } from "@rscheln/chatdock-sdk";',
+        'import { defineTool } from "@rsainth/chatdock-sdk";',
         "export default defineTool({",
         '  name: "get_clients",',
         '  description: "Get clients",',
@@ -38,7 +38,7 @@ describe("syncToolsOnce", () => {
     await writeFile(
       path.join(firstTool, "index.ts"),
       [
-        'import { defineTool } from "@rscheln/chatdock-sdk";',
+        'import { defineTool } from "@rsainth/chatdock-sdk";',
         "export default defineTool({",
         '  name: "get_clients",',
         '  description: "Get clients",',
@@ -56,7 +56,7 @@ describe("syncToolsOnce", () => {
     await writeFile(
       path.join(secondTool, "index.ts"),
       [
-        'import { defineTool } from "@rscheln/chatdock-sdk";',
+        'import { defineTool } from "@rsainth/chatdock-sdk";',
         "export default defineTool({",
         '  name: "get_orders",',
         '  description: "Get orders",',

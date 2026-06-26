@@ -63,7 +63,7 @@ function createToolTemplate(args: CliArgs, toolName: string) {
         ? `\n  authorize: ${authorizers[0]},`
         : `\n  authorize: allOfToolAuthorizers(\n    ${authorizers.join(",\n    ")},\n  ),`;
 
-  return `import { ${imports.join(", ")} } from "@rscheln/chatdock-sdk";
+  return `import { ${imports.join(", ")} } from "@rsainth/chatdock-sdk";
 import { z } from "zod";
 
 export default defineTool({

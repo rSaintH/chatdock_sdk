@@ -1,6 +1,6 @@
 # Next Basic
 
-Minimal runnable Next.js App Router example for `@rscheln/chatdock-sdk`.
+Minimal runnable Next.js App Router example for `@rsainth/chatdock-sdk`.
 
 It includes:
 
@@ -21,13 +21,13 @@ It includes:
 2. Typecheck this example:
 
    ```bash
-   corepack pnpm --filter @rscheln/example-next-basic typecheck
+   corepack pnpm --filter @rsainth/example-next-basic typecheck
    ```
 
 3. Run it locally:
 
    ```bash
-   corepack pnpm --filter @rscheln/example-next-basic dev
+   corepack pnpm --filter @rsainth/example-next-basic dev
    ```
 
 4. Open the printed Next.js URL and use the launcher in the bottom corner.
@@ -44,7 +44,7 @@ import { openai } from "@ai-sdk/openai";
 model: openai("gpt-4o-mini");
 ```
 
-Then install the provider package and set the required server-side environment variables. Keep provider keys out of client components.
+The route must always configure `model`, `models` with `defaultProvider`, or `fallbackModel`. Then install the provider package and set the required server-side environment variables. Keep provider keys out of client components.
 
 ## Production Notes
 

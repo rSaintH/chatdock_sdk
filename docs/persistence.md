@@ -1,19 +1,57 @@
 # Persistence
 
-Persistence is an adapter contract. The SDK should not assume the application database, ORM or authorization model.
+Persistence is an adapter contract. The SDK does not assume the application database, ORM, or authorization model.
 
 ## Contract
 
 ```ts
-type ChatbotPersistence = {
-  ensureConversation(input: EnsureConversationInput): Promise<Conversation>;
-  listConversations(input: ListConversationsInput): Promise<ConversationSummary[]>;
-  loadMessages(input: LoadMessagesInput): Promise<UIMessage[]>;
-  saveMessage(input: SaveMessageInput): Promise<SavedMessage>;
-  deleteConversation(input: DeleteConversationInput): Promise<void>;
-  updateConversation(input: UpdateConversationInput): Promise<void>;
+type PersistenceAdapter = {
+  getOrCreateConversation(input: {
+    conversationId?: string;
+    user: ChatbotUser | null;
+    context: ChatbotClientContext;
+  }): Promise<ConversationRecord>;
+  loadMessages(input: {
+    conversationId: string;
+    user: ChatbotUser | null;
+  }): Promise<UIMessage[]>;
+  saveMessage(input: {
+    conversationId: string;
+    user: ChatbotUser | null;
+    message: UIMessage;
+  }): Promise<void>;
+  saveMessages?(input: {
+    conversationId: string;
+    user: ChatbotUser | null;
+    messages: UIMessage[];
+  }): Promise<void>;
+  listConversations?(input: {
+    user: ChatbotUser | null;
+    limit?: number;
+  }): Promise<ConversationRecord[]>;
+  loadConversation?(input: {
+    conversationId: string;
+    user: ChatbotUser | null;
+  }): Promise<ConversationRecordWithMessages | null>;
+  updateConversation?(input: {
+    conversationId: string;
+    user: ChatbotUser | null;
+    title?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<ConversationRecord | null>;
+  deleteConversation?(input: {
+    conversationId: string;
+    user: ChatbotUser | null;
+  }): Promise<void | boolean>;
+  searchConversations?(input: {
+    user: ChatbotUser | null;
+    query: string;
+    limit?: number;
+  }): Promise<ConversationRecord[]>;
 };
 ```
+
+`getOrCreateConversation`, `loadMessages`, and `saveMessage` are the required pieces for the chat handler. The history route can use the optional methods when they are available.
 
 ## Recommended Tables
 
@@ -58,7 +96,7 @@ The backend should load only the history needed for the model:
 For demos and tests, an in-memory adapter is acceptable:
 
 ```ts
-import { createInMemoryPersistence } from "@rscheln/chatdock-sdk";
+import { createInMemoryPersistence } from "@rsainth/chatdock-sdk";
 
 export const persistence = createInMemoryPersistence();
 ```
@@ -70,7 +108,7 @@ Do not use in-memory persistence for production because serverless instances can
 Production apps should expose conversation history through an authenticated route backed by the same persistence adapter as chat.
 
 ```ts
-import { createConversationHistoryHandler } from "@rscheln/chatdock-sdk";
+import { createConversationHistoryHandler } from "@rsainth/chatdock-sdk";
 
 const handler = createConversationHistoryHandler({
   authAdapter: auth,
@@ -81,4 +119,4 @@ const handler = createConversationHistoryHandler({
 export { handler as GET, handler as PATCH, handler as DELETE };
 ```
 
-The route lists, searches, loads, renames and deletes conversations scoped by the authenticated user and tenant. See `docs/secure-setup.md` for React remote history wiring.
+The route lists, searches, loads, renames, and deletes conversations scoped by the authenticated user and tenant. See `docs/secure-setup.md` for React remote history wiring.

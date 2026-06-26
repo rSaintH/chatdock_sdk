@@ -1,4 +1,4 @@
-import type { ChatbotModel } from "@rscheln/chatdock-sdk";
+import type { ChatbotModel } from "@rsainth/chatdock-sdk";
 
 export const localModel = {
   specificationVersion: "v2",

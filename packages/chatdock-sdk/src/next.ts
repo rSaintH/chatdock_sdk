@@ -1,1 +1,1 @@
-export * from "@rscheln/next";
+export * from "@rsainth/next";

@@ -7,7 +7,7 @@ The Chatdock SDK is designed for applications that keep authentication, business
 Install the all-in-one package:
 
 ```bash
-pnpm add @rscheln/chatdock-sdk
+pnpm add @rsainth/chatdock-sdk
 ```
 
 ## Initialize
@@ -25,6 +25,7 @@ chatbot/
   auth.ts
   config.ts
   context.ts
+  local-model.ts
   persistence.ts
   system-prompt.ts
   tools.generated.ts
@@ -57,17 +58,21 @@ Use `--src-dir <path>` or `--app-dir <path>` if your project uses different fold
 Wrap your application shell:
 
 ```tsx
-import { ChatbotLauncher, ChatbotProvider } from "@rscheln/chatdock-sdk/react";
+import { ChatbotLauncher, ChatbotProvider } from "@rsainth/chatdock-sdk/react";
 
 export function AppShell() {
   return (
     <ChatbotProvider
       endpoint="/api/chat"
-      getAuthToken={async () => session.access_token}
+      getAuthToken={async () => window.localStorage.getItem("access_token")}
       context={() => ({
         pathname: window.location.pathname,
         search: window.location.search,
       })}
+      initialSuggestions={[
+        "Summarize this page",
+        "Help me navigate this app",
+      ]}
     >
       <App />
       <ChatbotLauncher />
@@ -83,7 +88,8 @@ The frontend sends user messages and public request context only. It must not im
 Next.js App Router example:
 
 ```ts
-import { createNextChatbotRoute } from "@rscheln/chatdock-sdk/next";
+import { openai } from "@ai-sdk/openai";
+import { createNextChatbotRoute } from "@rsainth/chatdock-sdk/next";
 import { auth } from "@/chatbot/auth";
 import { persistence } from "@/chatbot/persistence";
 import { systemPrompt } from "@/chatbot/system-prompt";
@@ -91,6 +97,7 @@ import { tools } from "@/chatbot/tools.generated";
 
 export const POST = createNextChatbotRoute({
   requireAuth: true,
+  model: openai("gpt-4o-mini"),
   auth,
   persistence,
   systemPrompt,
@@ -103,7 +110,8 @@ export const POST = createNextChatbotRoute({
 Supabase Edge Function example:
 
 ```ts
-import { createSupabaseAuthAdapter, createSupabaseChatbotHandler } from "@rscheln/chatdock-sdk/supabase";
+import { openai } from "@ai-sdk/openai";
+import { createSupabaseAuthAdapter, createSupabaseChatbotHandler } from "@rsainth/chatdock-sdk/supabase";
 import { createClient } from "@supabase/supabase-js";
 import { serve } from "https://deno.land/std/http/server.ts";
 import { systemPrompt } from "../_shared/chatbot/system-prompt.ts";
@@ -113,6 +121,7 @@ const userClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUP
 
 serve(createSupabaseChatbotHandler({
   requireAuth: true,
+  model: openai("gpt-4o-mini"),
   auth: createSupabaseAuthAdapter({ client: userClient }),
   systemPrompt,
   tools,
@@ -120,6 +129,8 @@ serve(createSupabaseChatbotHandler({
 ```
 
 For production, add request rate limits, Supabase persistence/audit/usage adapters, and a separate history route. See `docs/secure-setup.md`.
+
+Every backend example should set `model`, `models` with `defaultProvider`, or `fallbackModel`. If you are only sketching the integration, call out that the model is still required.
 
 ## Sync Tools
 

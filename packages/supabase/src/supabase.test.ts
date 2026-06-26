@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
 import {
   createSupabaseKnowledgeAdapter,
@@ -6,7 +7,7 @@ import {
   createSupabaseUsageAdapter,
   type SupabaseClientLike,
 } from "./supabase";
-import type { ChatbotUser } from "@rscheln/server";
+import type { ChatbotUser } from "@rsainth/server";
 
 describe("createSupabaseRateLimitAdapter", () => {
   it("uses the ai_check_rate_limit rpc and blocks denied requests", async () => {
@@ -47,6 +48,17 @@ describe("createSupabaseRateLimitAdapter", () => {
       reason: "Rate limit exceeded",
       retryAfter: 42,
     });
+  });
+});
+
+describe("schema sql", () => {
+  it("keeps the published schema in sync with the SDK copy", async () => {
+    const [supabaseSchema, sdkSchema] = await Promise.all([
+      readFile(new URL("./schema.sql", import.meta.url), "utf8"),
+      readFile(new URL("../../chatdock-sdk/src/supabase/schema.sql", import.meta.url), "utf8"),
+    ]);
+
+    expect(supabaseSchema).toBe(sdkSchema);
   });
 });
 

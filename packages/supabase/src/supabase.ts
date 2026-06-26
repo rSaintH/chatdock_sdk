@@ -14,7 +14,7 @@ import {
   type PersistenceAdapter,
   type RateLimitAdapter,
   type UsageAdapter
-} from "@rscheln/server";
+} from "@rsainth/server";
 
 type QueryResult<T> = Promise<{ data: T | null; error: { message: string } | null }>;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChatbotLauncher, ChatbotProvider } from "@rscheln/chatdock-sdk/react";
+import { ChatbotLauncher, ChatbotProvider } from "@rsainth/chatdock-sdk/react";
 import type { ReactNode } from "react";
 
 async function getDemoToken() {

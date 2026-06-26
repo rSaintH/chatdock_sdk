@@ -1,1 +1,1 @@
-export * from "@rscheln/react";
+export * from "@rsainth/react";

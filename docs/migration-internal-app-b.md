@@ -19,10 +19,10 @@ Document the current assistant entry points:
 Install the packages needed by the app shape:
 
 ```bash
-pnpm add @rscheln/chatdock-sdk
+pnpm add @rsainth/chatdock-sdk
 ```
 
-Use `@rscheln/chatdock-sdk/next` for Next.js routes or `@rscheln/chatdock-sdk/supabase` for Supabase Edge Functions.
+Use `@rsainth/chatdock-sdk/next` for Next.js routes or `@rsainth/chatdock-sdk/supabase` for Supabase Edge Functions.
 
 Run:
 

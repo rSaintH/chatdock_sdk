@@ -1,6 +1,6 @@
 {
-  "name": "@rscheln/next",
-  "version": "0.1.1",
+  "name": "@rsainth/next",
+  "version": "0.1.2",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.js",
@@ -25,7 +25,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@rscheln/server": "workspace:^"
+    "@rsainth/server": "workspace:^"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

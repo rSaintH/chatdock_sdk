@@ -28,15 +28,15 @@ Set `timeoutMs` on each tool, or `defaultToolTimeoutMs` on the handler as a fall
 Frontend code may import:
 
 ```ts
-@rscheln/react
+@rsainth/react
 ```
 
 Frontend code must not import:
 
 ```ts
-@rscheln/server
-@rscheln/next
-@rscheln/supabase
+@rsainth/server
+@rsainth/next
+@rsainth/supabase
 ```
 
 It also must not reference service role keys or provider API keys.

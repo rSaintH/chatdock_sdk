@@ -34,7 +34,7 @@ npx chatdock-sdk make-tool disable-user --destructive --role admin --tenant
 ## Tool Shape
 
 ```ts
-import { defineTool, toolOk } from "@rscheln/chatdock-sdk";
+import { defineTool, toolOk } from "@rsainth/chatdock-sdk";
 import { z } from "zod";
 
 export default defineTool({
@@ -64,7 +64,7 @@ Use `timeoutMs` on a tool to fail long-running work with a clear timeout error. 
 Use `toolError` when a tool wants to return a structured, non-exception failure for the model to handle:
 
 ```ts
-import { toolError } from "@rscheln/chatdock-sdk";
+import { toolError } from "@rsainth/chatdock-sdk";
 
 return toolError({
   message: "The CRM is temporarily unavailable.",
@@ -76,7 +76,7 @@ return toolError({
 Use `toolDenied` when the tool should tell the model that a visible tool cannot run for the submitted arguments:
 
 ```ts
-import { toolDenied } from "@rscheln/chatdock-sdk";
+import { toolDenied } from "@rsainth/chatdock-sdk";
 
 return toolDenied({
   message: "The requested tenant is not available to this user.",
@@ -96,7 +96,7 @@ import {
   defineTool,
   normalizeToolInputFields,
   sanitizeNullableId,
-} from "@rscheln/chatdock-sdk";
+} from "@rsainth/chatdock-sdk";
 
 export default defineTool({
   name: "create_invoice",
@@ -220,7 +220,7 @@ import {
   allOfToolAuthorizers,
   denyDestructiveInDemo,
   requireHumanApproval,
-} from "@rscheln/chatdock-sdk";
+} from "@rsainth/chatdock-sdk";
 
 export default defineTool({
   name: "sync_runtime",
@@ -287,7 +287,7 @@ Audit adapters can distinguish tools removed before model exposure (`tool.filter
 Use `createToolSuite` to apply shared defaults and catch duplicate tool names:
 
 ```ts
-import { createToolSuite } from "@rscheln/chatdock-sdk";
+import { createToolSuite } from "@rsainth/chatdock-sdk";
 import getClients from "./tools/get-clients";
 
 export const suite = createToolSuite({
@@ -310,7 +310,7 @@ the tools that make sense for the detected intent, tenant config, and current
 user context.
 
 ```ts
-import { createChatbotHandler } from "@rscheln/chatdock-sdk";
+import { createChatbotHandler } from "@rsainth/chatdock-sdk";
 import { tools } from "./tools.generated";
 
 export const handler = createChatbotHandler({
@@ -363,7 +363,7 @@ track which tools were sent to the provider.
 Use `createKnowledgeTool` when the model needs retrieval from approved documents:
 
 ```ts
-import { createKnowledgeTool, allowTenant } from "@rscheln/chatdock-sdk";
+import { createKnowledgeTool, allowTenant } from "@rsainth/chatdock-sdk";
 
 export const searchKnowledge = createKnowledgeTool(knowledgeAdapter, {
   name: "search_knowledge",

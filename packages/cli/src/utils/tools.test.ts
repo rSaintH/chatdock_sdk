@@ -12,7 +12,7 @@ describe("discoverTools", () => {
     await writeFile(
       path.join(toolDir, "index.ts"),
       [
-        'import { defineTool } from "@rscheln/chatdock-sdk";',
+        'import { defineTool } from "@rsainth/chatdock-sdk";',
         "export default defineTool({",
         '  name: "buscar_clientes",',
         '  description: "Busca clientes",',
@@ -38,7 +38,7 @@ describe("discoverTools", () => {
     await writeFile(
       path.join(toolDir, "index.ts"),
       [
-        'import { defineTool } from "@rscheln/chatdock-sdk";',
+        'import { defineTool } from "@rsainth/chatdock-sdk";',
         "export default defineTool({",
         '  name: "get_clients",',
         '  description: "Get clients",',
@@ -58,7 +58,7 @@ describe("discoverTools", () => {
   it("reports invalid tool files and duplicate names", async () => {
     const cwd = await mkdtemp(path.join(os.tmpdir(), "chatdock-sdk-tools-"));
     await writeTool(cwd, "first", [
-      'import { defineTool } from "@rscheln/chatdock-sdk";',
+      'import { defineTool } from "@rsainth/chatdock-sdk";',
       "export default defineTool({",
       '  name: "duplicate_name",',
       '  description: "First",',
@@ -67,7 +67,7 @@ describe("discoverTools", () => {
       "});",
     ]);
     await writeTool(cwd, "second", [
-      'import { defineTool } from "@rscheln/chatdock-sdk";',
+      'import { defineTool } from "@rsainth/chatdock-sdk";',
       "export default defineTool({",
       '  name: "duplicate_name",',
       '  description: "Second",',
@@ -76,7 +76,7 @@ describe("discoverTools", () => {
       "});",
     ]);
     await writeTool(cwd, "missing-input", [
-      'import { defineTool } from "@rscheln/chatdock-sdk";',
+      'import { defineTool } from "@rsainth/chatdock-sdk";',
       "export default defineTool({",
       '  name: "missing_input",',
       '  description: "Missing input",',
@@ -84,7 +84,7 @@ describe("discoverTools", () => {
       "});",
     ]);
     await writeTool(cwd, "bad-name", [
-      'import { defineTool } from "@rscheln/chatdock-sdk";',
+      'import { defineTool } from "@rsainth/chatdock-sdk";',
       "export default defineTool({",
       '  name: "bad-name",',
       '  description: "Bad name",',
@@ -93,7 +93,7 @@ describe("discoverTools", () => {
       "});",
     ]);
     await writeTool(cwd, "no-default", [
-      'import { defineTool } from "@rscheln/chatdock-sdk";',
+      'import { defineTool } from "@rsainth/chatdock-sdk";',
       "export const tool = defineTool({",
       '  name: "no_default",',
       '  description: "No default",',

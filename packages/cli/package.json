@@ -1,6 +1,6 @@
 {
-  "name": "@rscheln/cli",
-  "version": "0.1.1",
+  "name": "@rsainth/cli",
+  "version": "0.1.2",
   "description": "CLI for initializing and syncing Chatdock SDK projects.",
   "type": "module",
   "bin": {

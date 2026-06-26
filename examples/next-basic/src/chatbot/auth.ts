@@ -1,4 +1,4 @@
-import { createHeaderAuthAdapter } from "@rscheln/chatdock-sdk/next";
+import { createHeaderAuthAdapter } from "@rsainth/chatdock-sdk/next";
 
 export const auth = createHeaderAuthAdapter(async ({ token }) => {
   if (token !== "next-basic-demo-token") {

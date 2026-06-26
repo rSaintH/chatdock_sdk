@@ -1,4 +1,4 @@
-import { defineSystemPrompt } from "@rscheln/chatdock-sdk";
+import { defineSystemPrompt } from "@rsainth/chatdock-sdk";
 
 export const systemPrompt = defineSystemPrompt({
   parts: [

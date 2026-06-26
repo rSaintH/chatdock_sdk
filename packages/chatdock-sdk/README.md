@@ -1,4 +1,4 @@
-# @rscheln/chatdock-sdk
+# @rsainth/chatdock-sdk
 
 All-in-one SDK for adding tool-calling chatbots to React, Next.js App Router, and Supabase Edge Function applications.
 
@@ -17,7 +17,7 @@ The package provides frontend components, a streaming backend handler, adapters,
 ## Installation
 
 ```bash
-npm install @rscheln/chatdock-sdk
+npm install @rsainth/chatdock-sdk
 ```
 
 Install the peer dependencies that match your runtime:
@@ -66,6 +66,7 @@ chatbot/
   auth.ts
   config.ts
   context.ts
+  local-model.ts
   persistence.ts
   system-prompt.ts
   tools.generated.ts
@@ -81,13 +82,13 @@ Replace the generated placeholders with your application's auth, permissions, pe
 Import the stylesheet once in your app:
 
 ```ts
-import "@rscheln/chatdock-sdk/styles.css";
+import "@rsainth/chatdock-sdk/styles.css";
 ```
 
 Wrap your app shell with `ChatbotProvider` and render `ChatbotLauncher`:
 
 ```tsx
-import { ChatbotLauncher, ChatbotProvider } from "@rscheln/chatdock-sdk/react";
+import { ChatbotLauncher, ChatbotProvider } from "@rsainth/chatdock-sdk/react";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -125,8 +126,8 @@ Create a route such as `app/api/chat/route.ts`:
 
 ```ts
 import { openai } from "@ai-sdk/openai";
-import { createNextChatbotRoute } from "@rscheln/chatdock-sdk/next";
-import { createInMemoryPersistence } from "@rscheln/chatdock-sdk";
+import { createNextChatbotRoute } from "@rsainth/chatdock-sdk/next";
+import { createInMemoryPersistence } from "@rsainth/chatdock-sdk";
 import { auth } from "@/chatbot/auth";
 import { systemPrompt } from "@/chatbot/system-prompt";
 import { tools } from "@/chatbot/tools.generated";
@@ -149,7 +150,7 @@ For production, replace `createInMemoryPersistence()` with a database-backed ada
 Use `createHeaderAuthAdapter` when your frontend sends a bearer token:
 
 ```ts
-import { createHeaderAuthAdapter } from "@rscheln/chatdock-sdk/next";
+import { createHeaderAuthAdapter } from "@rsainth/chatdock-sdk/next";
 
 export const auth = createHeaderAuthAdapter(async ({ token }) => {
   if (!token) {
@@ -179,7 +180,7 @@ import {
   createSupabasePersistence,
   createSupabaseRateLimitAdapter,
   createSupabaseUsageAdapter,
-} from "@rscheln/chatdock-sdk/supabase";
+} from "@rsainth/chatdock-sdk/supabase";
 import { createClient } from "@supabase/supabase-js";
 import { systemPrompt } from "../_shared/chatbot/system-prompt.ts";
 import { tools } from "../_shared/chatbot/tools.generated.ts";
@@ -214,7 +215,7 @@ Use the admin client only for internal chatbot tables such as conversations, mes
 The base schema is available through this package subpath:
 
 ```txt
-@rscheln/chatdock-sdk/supabase/schema.sql
+@rsainth/chatdock-sdk/supabase/schema.sql
 ```
 
 You can also inspect it in the package at `src/supabase/schema.sql`.
@@ -224,7 +225,7 @@ You can also inspect it in the package at `src/supabase/schema.sql`.
 Tools are backend-only functions. They should live under `chatbot/tools/**/index.ts` so the CLI can discover and generate the catalog.
 
 ```ts
-import { allowRoles, allowTenant, allOfToolAuthorizers, defineTool } from "@rscheln/chatdock-sdk";
+import { allowRoles, allowTenant, allOfToolAuthorizers, defineTool } from "@rsainth/chatdock-sdk";
 import { z } from "zod";
 
 export default defineTool({
@@ -268,22 +269,23 @@ available for the current intent, user, tenant settings, and message context.
 
 ## System Prompts
 
-Use `defineSystemPrompt` to compose static rules and dynamic request context:
+Use `defineSystemPrompt` to compose static text and dynamic request context. The helper accepts a string, a function, an array of parts, or `{ parts: [...] }`:
 
 ```ts
-import { defineSystemPrompt } from "@rscheln/chatdock-sdk";
+import { defineSystemPrompt } from "@rsainth/chatdock-sdk";
 
-export const systemPrompt = defineSystemPrompt([
-  "You are the internal assistant for this application.",
-  "Answer clearly and do not invent private data.",
-  "Use tools only when they are relevant and authorized.",
-  ({ user, clientContext }) => {
-    return [
-      `Authenticated user: ${user?.id ?? "anonymous"}`,
-      `Current path: ${String(clientContext.pathname ?? "/")}`,
-    ].join("\n");
-  },
-]);
+export const systemPrompt = defineSystemPrompt({
+  parts: [
+    "You are the internal assistant for this application.",
+    "Answer clearly and do not invent private data.",
+    "Use tools only when they are relevant and authorized.",
+    ({ user, clientContext }) =>
+      [
+        `Authenticated user: ${user?.id ?? "anonymous"}`,
+        `Current path: ${String(clientContext.pathname ?? "/")}`,
+      ].join("\n"),
+  ],
+});
 ```
 
 Dynamic prompt parts receive the same runtime context as tools, including the request, authenticated user, conversation id, client context, selected provider, trigger, and injected services.
@@ -308,7 +310,7 @@ export const persistence = {
 
 The handler calls persistence before and after streaming:
 
-1. Create or load the conversation.
+1. Create or load the conversation with `getOrCreateConversation`.
 2. Load previous UI messages.
 3. Save new user messages.
 4. Stream the assistant response.
@@ -317,6 +319,8 @@ The handler calls persistence before and after streaming:
 Keep chatbot persistence separate from business tables. Apply user ownership checks in persistence and business authorization checks inside tools.
 
 ## Model Selection
+
+One of `model`, `models` with `defaultProvider`, or `fallbackModel` must be set on the backend route.
 
 Pass one model:
 
@@ -371,22 +375,22 @@ Checks the expected project shape, generated files, dependency hints, tool metad
 ## Exports
 
 ```ts
-import { defineTool, createChatbotHandler } from "@rscheln/chatdock-sdk";
-import { ChatbotProvider, ChatbotLauncher } from "@rscheln/chatdock-sdk/react";
-import { createNextChatbotRoute } from "@rscheln/chatdock-sdk/next";
-import { createSupabaseChatbotHandler } from "@rscheln/chatdock-sdk/supabase";
-import "@rscheln/chatdock-sdk/styles.css";
+import { defineTool, createChatbotHandler } from "@rsainth/chatdock-sdk";
+import { ChatbotProvider, ChatbotLauncher } from "@rsainth/chatdock-sdk/react";
+import { createNextChatbotRoute } from "@rsainth/chatdock-sdk/next";
+import { createSupabaseChatbotHandler } from "@rsainth/chatdock-sdk/supabase";
+import "@rsainth/chatdock-sdk/styles.css";
 ```
 
 Available subpaths:
 
-- `@rscheln/chatdock-sdk`
-- `@rscheln/chatdock-sdk/react`
-- `@rscheln/chatdock-sdk/server`
-- `@rscheln/chatdock-sdk/next`
-- `@rscheln/chatdock-sdk/supabase`
-- `@rscheln/chatdock-sdk/styles.css`
-- `@rscheln/chatdock-sdk/supabase/schema.sql`
+- `@rsainth/chatdock-sdk`
+- `@rsainth/chatdock-sdk/react`
+- `@rsainth/chatdock-sdk/server`
+- `@rsainth/chatdock-sdk/next`
+- `@rsainth/chatdock-sdk/supabase`
+- `@rsainth/chatdock-sdk/styles.css`
+- `@rsainth/chatdock-sdk/supabase/schema.sql`
 
 ## Security Checklist
 
@@ -410,15 +414,16 @@ For contributors working in this monorepo:
 
 ```bash
 pnpm install
-pnpm build
 pnpm typecheck
 pnpm test
+pnpm build
+pnpm release:check
 ```
 
 Publishing is managed with Changesets:
 
 ```bash
 pnpm release:version
-pnpm build
+pnpm release:check
 pnpm release:publish
 ```

@@ -7,7 +7,7 @@ This folder is intentionally a concrete file guide, not a full generated app.
 ## Install
 
 ```bash
-pnpm add @rscheln/chatdock-sdk @supabase/supabase-js @ai-sdk/openai ai zod
+pnpm add @rsainth/chatdock-sdk @supabase/supabase-js @ai-sdk/openai ai zod
 ```
 
 ## Files
@@ -48,8 +48,8 @@ export const supabase = createClient(
 ## `src/chatbot/ChatbotShell.tsx`
 
 ```tsx
-import "@rscheln/chatdock-sdk/styles.css";
-import { ChatbotLauncher, ChatbotProvider } from "@rscheln/chatdock-sdk/react";
+import "@rsainth/chatdock-sdk/styles.css";
+import { ChatbotLauncher, ChatbotProvider } from "@rsainth/chatdock-sdk/react";
 import type { ReactNode } from "react";
 import { supabase } from "../lib/supabase";
 
@@ -91,7 +91,7 @@ import {
   createSupabasePersistence,
   createSupabaseRateLimitAdapter,
   createSupabaseUsageAdapter,
-} from "npm:@rscheln/chatdock-sdk/supabase";
+} from "npm:@rsainth/chatdock-sdk/supabase";
 import { systemPrompt } from "../_shared/chatbot/system-prompt.ts";
 import { tools } from "../_shared/chatbot/tools.generated.ts";
 
@@ -152,11 +152,11 @@ Deno.serve(createSupabaseChatbotHandler({
 
 ```ts
 import { createClient } from "npm:@supabase/supabase-js";
-import { createConversationHistoryHandler } from "npm:@rscheln/chatdock-sdk";
+import { createConversationHistoryHandler } from "npm:@rsainth/chatdock-sdk";
 import {
   createSupabaseAuthAdapter,
   createSupabasePersistence,
-} from "npm:@rscheln/chatdock-sdk/supabase";
+} from "npm:@rsainth/chatdock-sdk/supabase";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -177,7 +177,7 @@ Deno.serve(createConversationHistoryHandler({
 ## `supabase/functions/_shared/chatbot/tools/get-profile/index.ts`
 
 ```ts
-import { defineTool, allowTenant } from "npm:@rscheln/chatdock-sdk";
+import { defineTool, allowTenant } from "npm:@rsainth/chatdock-sdk";
 import { z } from "npm:zod";
 
 export default defineTool({

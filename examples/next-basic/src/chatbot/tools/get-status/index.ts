@@ -1,4 +1,4 @@
-import { defineTool, toolOk } from "@rscheln/chatdock-sdk";
+import { defineTool, toolOk } from "@rsainth/chatdock-sdk";
 import { z } from "zod";
 
 export default defineTool({

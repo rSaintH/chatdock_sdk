@@ -32,7 +32,7 @@ importers:
 
   examples/next-basic:
     dependencies:
-      '@rscheln/chatdock-sdk':
+      '@rsainth/chatdock-sdk':
         specifier: workspace:^
         version: link:../../packages/chatdock-sdk
       ai:
@@ -63,19 +63,19 @@ importers:
 
   packages/chatdock-sdk:
     dependencies:
-      '@rscheln/cli':
+      '@rsainth/cli':
         specifier: workspace:^
         version: link:../cli
-      '@rscheln/next':
+      '@rsainth/next':
         specifier: workspace:^
         version: link:../next
-      '@rscheln/react':
+      '@rsainth/react':
         specifier: workspace:^
         version: link:../react
-      '@rscheln/server':
+      '@rsainth/server':
         specifier: workspace:^
         version: link:../server
-      '@rscheln/supabase':
+      '@rsainth/supabase':
         specifier: workspace:^
         version: link:../supabase
       '@supabase/supabase-js':
@@ -113,7 +113,7 @@ importers:
 
   packages/next:
     dependencies:
-      '@rscheln/server':
+      '@rsainth/server':
         specifier: workspace:^
         version: link:../server
       ai:
@@ -164,7 +164,7 @@ importers:
 
   packages/supabase:
     dependencies:
-      '@rscheln/server':
+      '@rsainth/server':
         specifier: workspace:^
         version: link:../server
       '@supabase/supabase-js':

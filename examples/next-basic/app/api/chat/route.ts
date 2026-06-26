@@ -1,4 +1,4 @@
-import { createNextChatbotRoute } from "@rscheln/chatdock-sdk/next";
+import { createNextChatbotRoute } from "@rsainth/chatdock-sdk/next";
 import { auth } from "@/chatbot/auth";
 import { localModel } from "@/chatbot/local-model";
 import { persistence } from "@/chatbot/persistence";
