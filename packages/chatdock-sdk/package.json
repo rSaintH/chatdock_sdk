@@ -1,6 +1,6 @@
 {
   "name": "@rsainth/chatdock-sdk",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "All-in-one SDK for adding tool-calling chatbots to React, Next.js, and Supabase applications.",
   "keywords": [
     "chatbot",
@@ -14,13 +14,13 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rSaintH/chatdock-sdk.git",
+    "url": "git+https://github.com/rsainth/chatdock_sdk.git",
     "directory": "packages/chatdock-sdk"
   },
   "bugs": {
-    "url": "https://github.com/rSaintH/chatdock-sdk/issues"
+    "url": "https://github.com/rsainth/chatdock_sdk/issues"
   },
-  "homepage": "https://github.com/rSaintH/chatdock-sdk#readme",
+  "homepage": "https://github.com/rsainth/chatdock_sdk#readme",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

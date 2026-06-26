@@ -211,6 +211,7 @@ The SDK does not host your chatbot. For production, keep the system-owned pieces
 
 See:
 
+- `docs/api-reference.md`
 - `docs/getting-started.md`
 - `docs/secure-setup.md`
 - `docs/security.md`
@@ -252,5 +253,6 @@ pnpm release:publish
 ## Notes
 
 - The all-in-one package reexports the server surface.
+- `docs/api-reference.md` is the exhaustive public API reference.
 - `packages/chatdock-sdk/src/supabase/schema.sql` must stay in sync with `packages/supabase/src/schema.sql`.
 - `README.md` is intentionally focused on usage. Deep implementation details live in `docs/`.

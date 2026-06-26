@@ -374,6 +374,8 @@ Checks the expected project shape, generated files, dependency hints, tool metad
 
 ## Exports
 
+The exhaustive public API reference lives at <https://github.com/rsainth/chatdock_sdk/blob/main/docs/api-reference.md>.
+
 ```ts
 import { defineTool, createChatbotHandler } from "@rsainth/chatdock-sdk";
 import { ChatbotProvider, ChatbotLauncher } from "@rsainth/chatdock-sdk/react";
