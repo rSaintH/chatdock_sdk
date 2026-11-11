@@ -12,7 +12,7 @@ It gives you the reusable UI, backend handlers, auth and persistence adapters, t
 - Expose remote conversation history
 - Validate auth from Next.js or Supabase
 - Persist chat state, usage, audit, and rate limits through Supabase
-- Define safe tools with authorization and human-approval checks
+- Define tools with server-side authorization (roles, tenant, feature flags)
 - Add knowledge/RAG tools backed by your own data
 - Generate and sync tools from the CLI
 - Provide in-memory adapters for local development and tests
@@ -222,8 +222,19 @@ See:
 
 - `examples/next-basic`: full Next.js example with chat, history, auth, and generated tools
 - `examples/vite-supabase`: Vite + Supabase example
-- `examples/migrated-internal-a`
-- `examples/migrated-internal-b`
+
+## Human approval
+
+`requireHumanApproval()` checks a flag sent by the client (`humanApproved` or
+`approvedToolNames`). It is a UX gate, not a security boundary: a client can send
+that flag itself, and the approval is not tied to the tool arguments. When an
+action must only run after a person confirms it, store the proposed action on the
+server and execute that stored action after confirmation.
+
+## History
+
+This repository started from a snapshot of an earlier private repository, so the
+first commit already contains most of the code.
 
 ## Development
 

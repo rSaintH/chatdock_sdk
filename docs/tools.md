@@ -209,7 +209,7 @@ destructive: true,
 Use `requiresConfirmation: true` for tools that must be approved before execution.
 
 The backend must filter tools before sending them to the model. The model must never receive tools the authenticated user cannot use.
-Destructive, dangerous, or confirmation-required tools are blocked by default unless the request context includes explicit approval through `humanApproved: true` or `approvedToolNames: ["tool_name"]`.
+Destructive, dangerous, or confirmation-required tools are blocked by default unless the request context includes explicit approval through `humanApproved: true` or `approvedToolNames: ["tool_name"]`. That context comes from the client, so treat it as a UX gate, not a security boundary (see "Human approval" in the README).
 
 Use authorizers for enforceable checks:
 
